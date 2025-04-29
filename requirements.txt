@@ -1,0 +1,11 @@
+faster-whisper
+pyaudio
+psutil
+rich
+silero_vad
+soundfile
+jiwer
+transformers
+flask
+flask_socketio
+websocket-client
