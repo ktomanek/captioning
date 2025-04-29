@@ -193,7 +193,7 @@ def main():
                                 caption_printer, args.rtf)
     else:
         audio = pyaudio.PyAudio()
-        audio_stream = captioning_utils.get_audio_stream(audio, input_device_index=args.input_device_index)
+        audio_stream = captioning_utils.get_audio_stream(audio, input_device_index=args.audio_input_device_index)
         capture_audio_from_stream(audio_stream, audio_queue, stop_threads)
 
         audio.terminate()
