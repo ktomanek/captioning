@@ -1,6 +1,7 @@
 # client for captioning client-server application
 # start server first with `python captioning_server.py`, then run this client with `python captioning_client.py`
 
+import argparse
 import logging
 import numpy as np
 import pyaudio
@@ -12,23 +13,46 @@ import captioning_utils
 
 logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
 
+parser = argparse.ArgumentParser(description="Real-time audio captioning using Whisper ASR and Silero VAD.")
+parser.add_argument(
+    "--rich_captions",
+    action="store_true",
+    help="Use rich captions for terminal output. Might not work on all terminals.",
+)
+parser.add_argument(
+    "--audio_input_device_index",
+    type=int,
+    default=1,
+    help="Index of the audio input device to use (default is 1).",
+)
+parser.add_argument(
+    "--host",
+    type=str,
+    default="localhost",
+    help="Hostname where the captioning server is running (default is localhost).",
+)
+parser.add_argument(
+    "--port",
+    type=str,
+    default="5001",
+    help="Port of the captioning server (default is 5001).",
+)
 
-SERVER_URL = "http://localhost:5001"
+args = parser.parse_args()
 
-
-USE_RICH_CAPTIONS = True
-if USE_RICH_CAPTIONS:
+if args.rich_captions:
     caption_printer = printers.RichCaptionPrinter()
 else:
     caption_printer = printers.PlainCaptionPrinter()
 
+server_url = f"http://{args.host}:{args.port}"
 
 sio = socketio.Client()
 
 
 @sio.event
 def connect():
-    print(f"Connected to captioning server: {SERVER_URL}...")
+    print(f"Connected to captioning server: {server_url}...")
     sio.emit('server_config_request')
 
 @sio.event
@@ -53,14 +77,14 @@ def handle_server_config(data):
 
 
 
-sio.connect(SERVER_URL)
+sio.connect(server_url)
 
 audio = pyaudio.PyAudio()
 print("Recording started. Press Ctrl+C to stop.")
 
 
 try:
-    audio_stream = captioning_utils.get_audio_stream(audio)
+    audio_stream = captioning_utils.get_audio_stream(audio, input_device_index=args.audio_input_device_index)
     logging.info("Started audio stream...")
 
     while True:

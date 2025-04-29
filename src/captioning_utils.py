@@ -44,6 +44,12 @@ def get_argument_parser():
         default=100,
         help="Minimum silence duration in milliseconds to consider the end of a segment.",
     )
+    parser.add_argument(
+        "--audio_input_device_index",
+        type=int,
+        default=1,
+        help="Index of the audio input device to use (default is 1).",
+    )
 
     return parser
 ########## configurations ##########
