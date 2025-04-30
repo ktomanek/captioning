@@ -201,8 +201,8 @@ class RemoteGPUTranscriber(Transcriber):
         import deploy_modal_transcriber
 
         print("Loading remote ASR model from Modal...")
-        self.asr_cls = modal.Cls.from_name(deploy_modal_transcriber.MODAL_APP_NAME, "WhisperLarge")
-        print(f"Connecting to remote model on Modal: {self.asr_cls} -- this may take up to 2 minutes if service needs to be started.")
+        self.remote_asr_cls = modal.Cls.from_name(deploy_modal_transcriber.MODAL_APP_NAME, "WhisperLarge")
+        print(f"Connecting to remote model on Modal: {self.remote_asr_cls} -- this may take up to 2 minutes if service needs to be started.")
         # send random audio to trigger model loading
         random_audio_np = np.random.rand(16000).astype(np.float32)
         _ = self.remote_asr_cls().transcribe.remote(random_audio_np)
