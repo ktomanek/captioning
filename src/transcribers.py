@@ -177,3 +177,49 @@ class MoonshineTranscriber(Transcriber):
         text = self.tokenizer.decode_batch(tokens)[0]
         return text.strip() if text else ""
 
+
+class RemoteGPUTranscriber(Transcriber):
+    """Runs a model on GPU via Modal functions.
+    
+    Finished segments are always processed remotely, partials can optionally
+    be processed locally using the tiny Moonshine ONNX model for lower latency.
+    """
+    AVAILABLE_MODELS = {'remote_and_local': 'remote_and_local',
+                        'remote_only': 'remote_only'}
+
+    def _load_model(self, model_name_or_path):
+
+        # load local model: Moonshine ONNX
+        print("Loading local Moonshine ONNX model...")
+        from moonshine_onnx import MoonshineOnnxModel, load_tokenizer
+        self.local_tokenizer = load_tokenizer()
+        self.local_model = MoonshineOnnxModel(model_name='tiny')
+        print(f"Loaded local model: Moonshine ONNX tiny")
+
+        # load remote model
+        import modal
+        import deploy_modal_transcriber
+
+        print("Loading remote ASR model from Modal...")
+        self.asr_cls = modal.Cls.from_name(deploy_modal_transcriber.MODAL_APP_NAME, "WhisperLarge")
+        print(f"Connecting to remote model on Modal: {self.asr_cls} -- this may take up to 2 minutes if service needs to be started.")
+        # send random audio to trigger model loading
+        random_audio_np = np.random.rand(16000).astype(np.float32)
+        _ = self.remote_asr_cls().transcribe.remote(random_audio_np)
+        print(f"Remote model loaded!")
+
+
+    def _transcribe(self, audio_data, segment_end):
+        if self.model_name == 'remote_only':
+            use_remote_model = True
+        else:
+            use_remote_model = segment_end
+
+        if use_remote_model:
+            text = self.remote_asr_cls().transcribe.remote(audio_data)
+        else:
+            tokens = self.local_model.generate(audio_data[np.newaxis, :].astype(np.float32))
+            text = self.local_tokenizer.decode_batch(tokens)[0]
+        return text.strip() if text else ""
+
+
