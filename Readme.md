@@ -119,7 +119,7 @@ Hardware tested
 
 ## Take-aways
 
-* Raspberry Pi 5 can run all tested models on device in acceptable speed for streaming except for whisper-small and base (RTF < 1.0)
+* Raspberry Pi 5 can run all tested models (except for whisper-small and base)  on device in acceptable speed for streaming for scenarios where the speaker is on the slower side (see `../sample/jfk_space.wav`); for faster speech, only the moonshine_onnx_tiny model seems to be fast enough.
 * In general, Moonshine models significantly faster than tested Nemo models with much lower memory footprint (due to ONNX opt and smaller parameter size), but have higher WER (see HF leaderboard)
 
 
