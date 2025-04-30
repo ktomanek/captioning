@@ -6,8 +6,14 @@ Supported ASR models:
 * [Moonshine ONNX](https://github.com/usefulsensors/moonshine)
 * [NVidia Nemo FastConformer](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/intro.html)
 
+
 Other models can easily added by adding a ```Transcriber``` class.
 
+## Running Non-Local models
+
+While this package aims for running small models that can run locally, it also includes a Transcriber implementation using a mix of local and remote processing (partial segments are transcribed with a fast, local model and once a segment is finished a larger model hosted on GPU will process this segment for better quality.)
+
+We're using [Modal](https://modal.com/docs/guide) here to enable on-demand usage of GPUs with pre-deployed functions. See `deploy_modal_transcriber.py`. Use `--model=remote` or `--model=remote_and_local`.
 
 # Installation
 
@@ -27,7 +33,13 @@ To install Moonshine ONNX models:
 
 ```pip install useful-moonshine-onnx@git+https://git@github.com/usefulsensors/moonshine.git#subdirectory=moonshine-onnx```
 
+To use the Modal based transcriber, also install:
 
+```pip install model```
+
+and then run
+
+```modal setup```
 
 # Running Captioning App
 
