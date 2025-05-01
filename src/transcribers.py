@@ -141,10 +141,10 @@ class NemoTranscriber(Transcriber):
             output = self.model.transcribe(
                 audio_data, batch_size=1,
                 return_hypotheses=False,
-                pnc='True', # add punctuation and capitalization
-                task="asr",
                 source_lang="en",
                 target_lang="en",
+                task="asr",
+                pnc="yes", # "yes" for punctuation and capitalization 
                 verbose=False # don't show progress bar
                 )
         else:
@@ -201,7 +201,11 @@ class RemoteGPUTranscriber(Transcriber):
         import deploy_modal_transcriber
 
         print("Loading remote ASR model from Modal...")
-        self.remote_asr_cls = modal.Cls.from_name(deploy_modal_transcriber.MODAL_APP_NAME, "WhisperLarge")
+
+        self.remote_asr_cls = modal.Cls.from_name(deploy_modal_transcriber.MODAL_APP_NAME, "FasterWhisper")
+        
+        # startup time for the required image is surprisingly slow on Modal
+        # self.remote_asr_cls = modal.Cls.from_name(deploy_modal_transcriber.MODAL_APP_NAME, "NemoASR")
         print(f"Connecting to remote model on Modal: {self.remote_asr_cls} -- this may take up to 2 minutes if service needs to be started.")
         # send random audio to trigger model loading
         random_audio_np = np.random.rand(16000).astype(np.float32)

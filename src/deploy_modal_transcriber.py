@@ -11,40 +11,40 @@ import modal
 
 MODAL_APP_NAME = "asr-service"
 
-image = modal.Image.debian_slim().apt_install("ffmpeg").pip_install(
-    "numpy",
-    "rich",
+nemo_image = modal.Image.debian_slim().apt_install("ffmpeg").pip_install(
     "torch",
-    "huggingface_hub[hf_transfer]==0.26.2",
-    "transformers",
+    "nemo_toolkit[asr]",
 )
-app = modal.App(MODAL_APP_NAME)
 
+# latest version of ctranslate2 (4.5.0) requires cuda 12 and cudnn 9
+cuda_image = (
+    modal.Image.from_registry("nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04", add_python="3.11")
+    .apt_install("git")
+    .pip_install(  # required to build flash-attn
+        "numpy",
+        "huggingface_hub[hf_transfer]==0.26.2",        
+        "torch",
+        "ctranslate2",
+        "faster_whisper",
+        "transformers",
+    )
+)
+
+app = modal.App(MODAL_APP_NAME)
 
 # TODO set scaledown_window and other handling
 # see https://modal.com/docs/reference/modal.App#cls
-@app.cls(
-    image=image,
-    gpu="L4", 
-    # timeout=5, # seconds,
-    # scaledown_window=20,
-)
-class WhisperLarge:
+@app.cls(image=cuda_image, gpu="L4")
+class FasterWhisper:
     @modal.enter()
     def enter(self):
-        """This runs once when the container starts"""
         import torch
-        from transformers import pipeline
-        
-        # TODO use fasterwhisper
+        from faster_whisper import WhisperModel
 
-        # model_name = "openai/whisper-small"
-        model_name = "openai/whisper-large-v3"
-        #model_name = "openai/whisper-large-v3-turbo"
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"Using device: {device}")
-        self.whisper_pipeline = pipeline("automatic-speech-recognition", model=model_name, device=device)
-        print("Model loaded and ready")
+        self.model = WhisperModel('large', device="cuda", compute_type="float16")
+        print("FasterWhisper model loaded.")
 
     @modal.method()
     def transcribe(self, audio_chunk):
@@ -53,7 +53,52 @@ class WhisperLarge:
         
         # Process audio
         audio_array = np.frombuffer(audio_chunk, dtype=np.float32)
-        pred = self.whisper_pipeline(audio_array)
-        print(f"Transcription: {pred}")
-        transcription = pred.get("text", "")        
+        segments, _ = self.model.transcribe(
+            audio_array,
+            beam_size=5,
+            language='en',
+            condition_on_previous_text=False,
+            vad_filter=False
+        )
+        transcription = ' '.join(segment.text for segment in segments if segment.text).strip()
+        print(f"Transcription: {transcription}")
+        return transcription
+
+
+@app.cls(image=nemo_image, gpu="L4")
+class NemoASR:
+    @modal.enter()
+    def enter(self):
+        import torch
+        from nemo.collections.asr.models import EncDecMultiTaskModel
+        if torch.cuda.is_available():
+            device = torch.device(f'cuda:0')
+        else:
+            device = torch.device(f'cpu')
+        print(f"Using device: {device}")
+
+        model_name = 'nvidia/canary-1b'
+        # model_name = 'nvidia/canary-180m-flash'
+
+        self.model = EncDecMultiTaskModel.from_pretrained(model_name, map_location=device)
+        print("Nemo model loaded.")
+
+    @modal.method()
+    def transcribe(self, audio_chunk):
+        """Process audio chunks for transcription"""
+        import numpy as np
+        
+        # Process audio
+        audio_array = np.frombuffer(audio_chunk, dtype=np.float32)
+        pred = self.model.transcribe(
+            audio_array, 
+            batch_size=1,
+            source_lang="en",
+            target_lang="en",
+            task="asr",
+            pnc="yes" # "yes" for punctuation and capitalization 
+        )
+        print('PRED:', pred)
+        transcription = pred[0].text.strip() if pred else ""
+        print(f"Transcription: {transcription}")
         return transcription
