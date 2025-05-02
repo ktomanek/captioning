@@ -50,7 +50,12 @@ def get_argument_parser():
         default=1,
         help="Index of the audio input device to use (default is 1).",
     )
-
+    parser.add_argument(
+        "--show_audio_devices",
+        action="store_true",
+        help="List available audio input devices and exit.",
+    )
+    
     return parser
 ########## configurations ##########
 
@@ -73,7 +78,7 @@ MAXIMUM_SEGMENT_DURATION = 10.0
 
 
 def load_asr_model(model_name, sampling_rate=SAMPLING_RATE):
-    print("Loading ASR model...")
+    logging.debug("Loading ASR model...")
     if model_name.startswith('whisper'):
         asr_model = transcribers.WhisperTranscriber(model_name, sampling_rate)
     elif model_name.startswith('nemo'):
@@ -113,6 +118,8 @@ def transcription_worker(
     speech_buffer = np.empty(0, dtype=np.float32)
     is_speech_recording = False
     time_since_last_transcription = time.time()
+
+    caption_printer.start()
 
     while not stop_threads.is_set():
         try:
@@ -181,3 +188,11 @@ def get_audio_stream(audio, input_device_index=INPUT_DEVICE_INDEX):
                         input_device_index=input_device_index)
 
     return audio_stream
+
+
+def list_audio_devices():
+    p = pyaudio.PyAudio()
+    for i in range(p.get_device_count()):
+        device_info = p.get_device_info_by_index(i)
+        print(f"* Device [{i}]: {device_info['name']} \t input channels: {device_info['maxInputChannels']}, output channels: {device_info['maxOutputChannels']}")
+    p.terminate()

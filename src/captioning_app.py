@@ -52,12 +52,18 @@ def get_args():
     if args.eval and (not args.audio_file or not args.reference_file):
         parser.error("Evaluation mode requires both --audio_file and --reference_file.")
 
+    if args.show_audio_devices:
+        captioning_utils.list_audio_devices()
+        exit(0)
+
     return args
 
 
-def capture_audio_from_stream(audio_stream, audio_queue, stop_threads):
+def capture_audio_from_stream(audio_stream, audio_queue, stop_threads, caption_printer):
 
     print("Recording started. Press Ctrl+C to stop.")
+    caption_printer.start()
+
 
     try:
         while True:
@@ -194,10 +200,12 @@ def main():
     else:
         audio = pyaudio.PyAudio()
         audio_stream = captioning_utils.get_audio_stream(audio, input_device_index=args.audio_input_device_index)
-        capture_audio_from_stream(audio_stream, audio_queue, stop_threads)
+        capture_audio_from_stream(audio_stream, audio_queue, stop_threads, caption_printer)
 
         audio.terminate()
+        caption_printer.stop()
         print("\nRecording stopped.")
+        
 
     print("\n>>> Model stats:")
     asr_model.get_stats()

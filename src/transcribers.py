@@ -36,7 +36,7 @@ class Transcriber():
         """Warm up the model by running a dummy transcription."""
         data = np.zeros((self.sampling_rate,), dtype=np.float32)  # 1 second of silence
         _ = self._transcribe(data, segment_end=True)
-        print('Model warmed up...')
+        logging.debug('Model warmed up...')
 
     def _transcribe(self, audio_data, segment_end):
         raise NotImplementedError("Subclasses should implement this method to load the model.")
@@ -75,17 +75,12 @@ class WhisperTranscriber(Transcriber):
         if model_name not in self.AVAILABLE_MODELS.keys():
             raise ValueError(f"Model {model_name} is not supported by WhisperTranscriber.")
         
-        # Set the environment variable
-        os.environ["KERAS_BACKEND"] = "torch"
-
         from faster_whisper import WhisperModel
-        # Verify it is set
-        print(f"KERAS_BACKEND is set to: {os.environ['KERAS_BACKEND']}")        
         
         full_model_name = self.AVAILABLE_MODELS[model_name]
         self.model = WhisperModel(full_model_name, device="cpu", compute_type="int8")
 
-        print(f"Loaded Whisper model: {model_name} --> {full_model_name}")
+        logging.info(f"Loaded Whisper model: {model_name} --> {full_model_name}")
 
     def _transcribe(self, audio_data, segment_end):
         # for partial transcriptions, we are using smaller beam size
@@ -148,7 +143,7 @@ class NemoTranscriber(Transcriber):
         nemo_logger = logging.getLogger("nemo_logger")
         nemo_logger.setLevel(logging.ERROR)  # Only show errors and critical issues
 
-        print(f"Loaded Nemo model: {model_name} --> {full_model_name}")
+        logging.info(f"Loaded Nemo model: {model_name} --> {full_model_name}")
 
     def _transcribe(self, audio_data, segment_end):
         if self.model_name == self.E2E_MODEL:
@@ -184,7 +179,7 @@ class MoonshineTranscriber(Transcriber):
         self.tokenizer = load_tokenizer()
         self.model = MoonshineOnnxModel(model_name=full_model_name)
 
-        print(f"Loaded Moonshine ONNX model: {full_model_name}")
+        logging.info(f"Loaded Moonshine ONNX model: {full_model_name}")
 
     def _transcribe(self, audio_data, segment_end):
         tokens = self.model.generate(audio_data[np.newaxis, :].astype(np.float32))
@@ -204,17 +199,17 @@ class RemoteGPUTranscriber(Transcriber):
     def _load_model(self, model_name_or_path):
 
         # load local model: Moonshine ONNX
-        print("Loading local Moonshine ONNX model...")
+        logging.info("Loading local Moonshine ONNX model...")
         from moonshine_onnx import MoonshineOnnxModel, load_tokenizer
         self.local_tokenizer = load_tokenizer()
         self.local_model = MoonshineOnnxModel(model_name='tiny')
-        print(f"Loaded local model: Moonshine ONNX tiny")
+        logging.debug(f"Loaded local model: Moonshine ONNX tiny")
 
         # load remote model
         import modal
         import deploy_modal_transcriber
 
-        print("Loading remote ASR model from Modal...")
+        logging.info("Loading remote ASR model from Modal...")
 
         self.remote_asr_cls = modal.Cls.from_name(deploy_modal_transcriber.MODAL_APP_NAME, "FasterWhisper")
         

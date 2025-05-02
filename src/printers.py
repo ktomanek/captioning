@@ -4,10 +4,23 @@ import sys
 
 class CaptionPrinter:
     """Base class for caption printers."""
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
     def print(self, transcript, duration=None, partial=False):
         raise NotImplementedError("This method should be overridden by subclasses.")
 
 class PlainCaptionPrinter(CaptionPrinter):
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
     def print(self, transcript, duration=None, partial=False):
         """Update the caption display with the latest transcription"""
         if partial:
@@ -24,12 +37,20 @@ class RichCaptionPrinter(CaptionPrinter):
         # https://rich.readthedocs.io/en/stable/style.html
         from rich.console import Console
         from rich.theme import Theme
+
         caption_theme = Theme({
             "partial": "italic",
             "segment": "bold blue",
         })
-        self.console = Console(theme=caption_theme)
+        self.console = Console(theme=caption_theme, highlight=False)
 
+        self.console.rule("[bold magenta]Initializing ...")
+
+    def start(self):
+        self.console.rule("[bold magenta]Transcribing speech...")
+
+    def stop(self):
+        self.console.rule()
 
     def _map_probabilities(self, p):
         """Map probabilities to colors"""
@@ -82,5 +103,5 @@ class RichCaptionPrinter(CaptionPrinter):
             syle = "partial"
             self.console.print(text, end="", style=syle)   # Print the styled text without adding a new line
         else:
-            syle = "segment" #"bold"
-            self.console.print(text, style=syle)   # Print the styled text without adding a new line
+            syle = "segment"
+            self.console.print(text, style=syle) # Print the styled text without adding a new line

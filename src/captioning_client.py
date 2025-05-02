@@ -37,8 +37,18 @@ parser.add_argument(
     default="5001",
     help="Port of the captioning server (default is 5001).",
 )
+parser.add_argument(
+    "--show_audio_devices",
+    action="store_true",
+    help="List available audio input devices and exit.",
+)
+
 
 args = parser.parse_args()
+
+if args.show_audio_devices:
+    captioning_utils.list_audio_devices()
+    exit(0)
 
 if args.rich_captions:
     caption_printer = printers.RichCaptionPrinter()
@@ -86,6 +96,7 @@ print("Recording started. Press Ctrl+C to stop.")
 try:
     audio_stream = captioning_utils.get_audio_stream(audio, input_device_index=args.audio_input_device_index)
     logging.info("Started audio stream...")
+    caption_printer.start()
 
     while True:
             data = audio_stream.read(captioning_utils.AUDIO_FRAMES_TO_CAPTURE)
@@ -102,5 +113,6 @@ finally:
     audio_stream.close()
     audio.terminate()
     sio.disconnect()
+    caption_printer.stop()
     print("Disconnected from server, all shut down")
 
