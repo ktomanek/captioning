@@ -1,6 +1,8 @@
 # different caption printers
 
+import shutil
 import sys
+
 
 class CaptionPrinter:
     """Base class for caption printers."""
@@ -16,10 +18,10 @@ class CaptionPrinter:
 
 class PlainCaptionPrinter(CaptionPrinter):
     def start(self):
-        pass
+        print("---------------------------  Transcribing speech ----------------------------")
 
     def stop(self):
-        pass
+        print("-----------------------------------------------------------------------------")
 
     def print(self, transcript, duration=None, partial=False):
         """Update the caption display with the latest transcription"""
@@ -100,6 +102,11 @@ class RichCaptionPrinter(CaptionPrinter):
 
         # Show partial and full segments differently
         if partial:
+            # if text longer than terminal width, truncate it on the left
+            terminal_width = self.console.width
+            if len(text) > terminal_width/2:
+                last_chars = terminal_width - 5
+                text = '...' + text[-last_chars:]
             syle = "partial"
             self.console.print(text, end="", style=syle)   # Print the styled text without adding a new line
         else:

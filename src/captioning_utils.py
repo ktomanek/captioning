@@ -119,8 +119,6 @@ def transcription_worker(
     is_speech_recording = False
     time_since_last_transcription = time.time()
 
-    caption_printer.start()
-
     while not stop_threads.is_set():
         try:
             # read new chunk from queue and add to buffer
