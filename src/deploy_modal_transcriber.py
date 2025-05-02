@@ -53,16 +53,21 @@ class FasterWhisper:
         
         # Process audio
         audio_array = np.frombuffer(audio_chunk, dtype=np.float32)
+
         segments, _ = self.model.transcribe(
             audio_array,
             beam_size=5,
             language='en',
             condition_on_previous_text=False,
-            vad_filter=False
+            vad_filter=False,
+            word_timestamps=True,
         )
-        transcription = ' '.join(segment.text for segment in segments if segment.text).strip()
+        transcription = ''
+        for segment in segments:
+                for word in segment.words:
+                    transcription += word.word + '/' + str(word.probability) + ' '
         print(f"Transcription: {transcription}")
-        return transcription
+        return transcription.strip()
 
 
 @app.cls(image=nemo_image, gpu="L4")

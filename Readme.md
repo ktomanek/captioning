@@ -35,7 +35,7 @@ To install Moonshine ONNX models:
 
 To use the Modal based transcriber, also install:
 
-```pip install model```
+```pip install modal```
 
 and then run
 

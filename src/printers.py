@@ -1,5 +1,5 @@
 # different caption printers
-
+import os
 import shutil
 import sys
 
@@ -18,6 +18,7 @@ class CaptionPrinter:
 
 class PlainCaptionPrinter(CaptionPrinter):
     def start(self):
+        os.system('clear')
         print("---------------------------  Transcribing speech ----------------------------")
 
     def stop(self):
@@ -49,6 +50,7 @@ class RichCaptionPrinter(CaptionPrinter):
         self.console.rule("[bold magenta]Initializing ...")
 
     def start(self):
+        os.system('clear')
         self.console.rule("[bold magenta]Transcribing speech...")
 
     def stop(self):
