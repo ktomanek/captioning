@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Captioning Client</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        /* Mobile-specific styles */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            button {
+                margin-bottom: 8px;
+                padding: 12px;
+                font-size: 16px; /* Larger touch targets for mobile */
+            }
+            
+            #status {
+                margin: 10px 0;
+                text-align: center;
+                display: block;
+            }
+        }
+        
+        #transcription-container {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            min-height: 200px;
+        }
+        
+        #partial-transcription {
+            color: #666;
+            font-style: italic;
+        }
+        
+        #final-transcription {
+            margin-bottom: 15px;
+        }
+        
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            gap: 10px;
+            margin-right: 15px;
+        }
+        
+        button {
+            padding: 8px 16px;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:disabled {
+            background-color: #cccccc !important;
+            cursor: not-allowed;
+        }
+        
+        .btn-connect {
+            background-color: #2196F3; /* Blue */
+        }
+        
+        .btn-disconnect {
+            background-color: #F44336; /* Red */
+        }
+        
+        .btn-action {
+            background-color: #4CAF50; /* Green */
+        }
+        
+        .status {
+            margin-left: 15px;
+            font-style: italic;
+        }
+        
+        .config-info {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #555;
+        }
+        
+        /* Word confidence styling */
+        .confidence-high {
+            color: #2e7d32; /* Dark green */
+        }
+        
+        .confidence-medium {
+            color: #f9a825; /* Amber */
+        }
+        
+        .confidence-low {
+            color: #c62828; /* Dark red */
+        }
+    </style>
+</head>
+<body>
+    <h1>Web Captioning Client</h1>
+    
+    <div class="controls">
+        <div class="control-group">
+            <button id="connect-btn" class="btn-connect">Connect</button>
+            <button id="disconnect-btn" class="btn-disconnect" disabled>Disconnect</button>
+        </div>
+        <div class="control-group">
+            <button id="start-btn" class="btn-action" disabled>Start Captioning</button>
+            <button id="stop-btn" class="btn-action" disabled>Stop</button>
+            <button id="clear-btn" class="btn-action" disabled>Clear Transcripts</button>
+        </div>
+        <span id="status" class="status">Disconnected</span>
+    </div>
+    
+    <div id="transcription-container">
+        <div id="final-transcription"></div>
+        <div id="partial-transcription"></div>
+    </div>
+    
+    <div id="server-config" class="config-info"></div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // Configuration
+        const SAMPLE_RATE = 16000;
+        const AUDIO_FRAMES_TO_CAPTURE = 512; // Match server's expected frame size
+        
+        // DOM Elements
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const clearBtn = document.getElementById('clear-btn');
+        const statusEl = document.getElementById('status');
+        const finalTranscriptionEl = document.getElementById('final-transcription');
+        const partialTranscriptionEl = document.getElementById('partial-transcription');
+        const serverConfigEl = document.getElementById('server-config');
+        
+        // State variables
+        let socket;
+        let audioContext;
+        let microphone;
+        let processor;
+        let isRecording = false;
+        
+        // Connect to the server
+        function connectToServer() {
+            if (socket) {
+                // If socket exists but is disconnected, reconnect
+                if (!socket.connected) {
+                    socket.connect();
+                }
+                return;
+            }
+            
+            // Create new socket connection
+            const serverUrl = window.location.origin;
+            socket = io(serverUrl, {
+                reconnectionAttempts: 5,
+                timeout: 10000
+            });
+            
+            // Set up event handlers
+            socket.on('connect', () => {
+                statusEl.textContent = 'Connected';
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+                startBtn.disabled = false;
+                clearBtn.disabled = false;
+                
+                // Clear transcripts when connecting
+                clearTranscriptions();
+                
+                socket.emit('server_config_request');
+            });
+            
+            socket.on('disconnect', () => {
+                statusEl.textContent = 'Disconnected';
+                if (isRecording) {
+                    stopRecording();
+                }
+                
+                // Update UI state
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+                startBtn.disabled = true;
+                stopBtn.disabled = true;
+                clearBtn.disabled = true;
+                serverConfigEl.innerHTML = '';
+            });
+            
+            socket.on('connect_error', (error) => {
+                console.error('Connection error:', error);
+                statusEl.textContent = 'Connection failed';
+                connectBtn.disabled = false;
+                disconnectBtn.disabled = true;
+            });
+            
+            socket.on('server_config', (config) => {
+                serverConfigEl.innerHTML = `<strong>Server Configuration:</strong><br>
+                                         Model: ${config.model}<br>
+                                         Max Segment Duration: ${config.max_segment_duration}s<br>
+                                         Min Partial Duration: ${config.min_partial_duration}s<br>
+                                         End-of-Speech Silence: ${config.eos_min_silence}ms`;
+            });
+            
+            socket.on('transcription', (data) => {
+                const { transcript, partial, duration } = data;
+                
+                // Process transcript to colorize words with confidence scores
+                const processedTranscript = processTranscriptWithConfidence(transcript);
+                
+                if (partial) {
+                    // Display partial transcription
+                    partialTranscriptionEl.innerHTML = processedTranscript;
+                } else {
+                    // Display final transcription and clear partial
+                    finalTranscriptionEl.innerHTML += `<p>${processedTranscript}</p>`;
+                    partialTranscriptionEl.innerHTML = '';
+                    
+                    // Auto-scroll to the latest transcription
+                    const container = document.getElementById('transcription-container');
+                    container.scrollTop = container.scrollHeight;
+                }
+            });
+            
+            socket.on('audio_processed', (data) => {
+                // Optional: You can use this to update UI with processing status
+                // console.log('Audio processed:', data);
+            });
+            
+            // Update UI
+            statusEl.textContent = 'Connecting...';
+            connectBtn.disabled = true;
+        }
+        
+        // Disconnect from the server
+        function disconnectFromServer() {
+            if (!socket) return;
+            
+            // Stop recording if active
+            if (isRecording) {
+                stopRecording();
+            }
+            
+            // Disconnect socket
+            socket.disconnect();
+        }
+        
+        // Start audio recording and streaming
+        async function startRecording() {
+            try {
+                // Request microphone access
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        channelCount: 1,
+                        sampleRate: SAMPLE_RATE
+                    }
+                });
+                
+                // Set up audio processing
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: SAMPLE_RATE
+                });
+                
+                microphone = audioContext.createMediaStreamSource(stream);
+                processor = audioContext.createScriptProcessor(AUDIO_FRAMES_TO_CAPTURE, 1, 1);
+                
+                // Process audio data
+                processor.onaudioprocess = (e) => {
+                    if (!isRecording || !socket.connected) return;
+                    
+                    // Get audio data from the buffer
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    
+                    // Convert float32 to int16 (matching the server's format)
+                    const int16Data = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        // Convert from float [-1.0,1.0] to int16 [-32768,32767]
+                        int16Data[i] = Math.max(-32768, Math.min(32767, Math.floor(inputData[i] * 32767)));
+                    }
+                    
+                    // Send the audio data to the server
+                    socket.emit('audio_data', int16Data.buffer);
+                };
+                
+                // Connect the audio nodes
+                microphone.connect(processor);
+                processor.connect(audioContext.destination);
+                
+                // Update UI
+                isRecording = true;
+                statusEl.textContent = 'Recording...';
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                clearBtn.disabled = true;
+                
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                statusEl.textContent = 'Microphone access failed';
+                alert('Microphone access failed: ' + err.message);
+            }
+        }
+        
+        // Stop recording
+        function stopRecording() {
+            if (!isRecording) return;
+            
+            isRecording = false;
+            statusEl.textContent = 'Connected';
+            
+            // Disconnect and clean up audio nodes
+            if (processor && microphone) {
+                microphone.disconnect();
+                processor.disconnect();
+                processor = null;
+                microphone = null;
+            }
+            
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close();
+            }
+            
+            // Update UI
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            clearBtn.disabled = false;
+        }
+        
+        // Clear all transcriptions
+        function clearTranscriptions() {
+            finalTranscriptionEl.innerHTML = '';
+            partialTranscriptionEl.innerHTML = '';
+        }
+        
+        // Event listeners
+        connectBtn.addEventListener('click', connectToServer);
+        disconnectBtn.addEventListener('click', disconnectFromServer);
+        startBtn.addEventListener('click', startRecording);
+        stopBtn.addEventListener('click', stopRecording);
+        clearBtn.addEventListener('click', clearTranscriptions);
+        
+        // Clean up when the page unloads
+        window.addEventListener('beforeunload', () => {
+            if (socket && socket.connected) {
+                socket.disconnect();
+            }
+            if (isRecording) {
+                stopRecording();
+            }
+        });
+        
+        /**
+         * Process transcript text to highlight words based on confidence scores
+         * Similar to the RichCaptionPrinter in the Python code
+         * 
+         * @param {string} transcript - The transcript text which may contain confidence scores
+         * @return {string} HTML formatted transcript with colored words based on confidence
+         */
+        function processTranscriptWithConfidence(transcript) {
+            // If there are no confidence scores, return the transcript as is
+            if (!transcript.includes('/')) {
+                return transcript;
+            }
+            
+            // Split the transcript into words
+            const words = transcript.split(' ');
+            const processedWords = [];
+            
+            for (const word of words) {
+                // Check if the word contains a confidence score (format: "word/0.95")
+                if (word.includes('/')) {
+                    const parts = word.split('/');
+                    const text = parts[0];
+                    const confidence = parseFloat(parts[1]);
+                    
+                    // Determine confidence level class (same thresholds as in the Python code)
+                    let confidenceClass = '';
+                    if (confidence > 0.9) {
+                        confidenceClass = 'confidence-high';
+                    } else if (confidence > 0.7) {
+                        confidenceClass = 'confidence-medium';
+                    } else {
+                        confidenceClass = 'confidence-low';
+                    }
+                    
+                    // Add colored word without showing the confidence value
+                    processedWords.push(`<span class="${confidenceClass}">${text}</span>`);
+                } else {
+                    // Word doesn't have a confidence score, add it as is
+                    processedWords.push(word);
+                }
+            }
+            
+            // Join the words back together
+            return processedWords.join(' ');
+        }
+    </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
-# server side for for captioning client-server application
+# server side for captioning client-server application
 # start server first with `python captioning_server.py`
-# allows only a single client connection at a time
+# supports both terminal-based and web-based clients simultaneously
 
 from flask import Flask, render_template
 from flask_socketio import SocketIO
@@ -54,7 +54,11 @@ transcriber.start()
 
 @app.route('/')
 def index():
-    return "Captioning Server Running"
+    return render_template('index.html')
+
+@app.route('/web')
+def web_client():
+    return render_template('web_client.html')
 
 @socketio.on('connect')
 def socket_connect():
