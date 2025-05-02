@@ -26,14 +26,51 @@ class RichCaptionPrinter(CaptionPrinter):
         from rich.theme import Theme
         caption_theme = Theme({
             "partial": "italic",
-            "segment": "bold reverse",
+            "segment": "bold blue",
         })
         self.console = Console(theme=caption_theme)
+
+
+    def _map_probabilities(self, p):
+        """Map probabilities to colors"""
+        if p > 0.9:
+            return 'green'
+        elif p > 0.7:
+            return 'yellow'
+        else:
+            return 'red'
+
+
+    def _maybe_colorize_transcript_with_probabilities(self, transcript, add_probabilities=False):
+        """If transript contains probabilities, format them with colors.
+        
+        Probabilities are expected to be in the format "word/p" where p is a float.
+        """
+        # format probabilites
+        words = transcript.split()
+        for i, word in enumerate(words):
+            if '/' in word:
+                parts = word.split('/')
+                w = parts[0].strip()
+                p = float(parts[1].strip())
+                color = self._map_probabilities(p)
+                if add_probabilities:
+                    words[i] = f"[{color}]{parts[0]}[/{color}]/[bold magenta]{parts[1]}[/bold magenta]"
+                else:
+                    words[i] = f"[{color}]{parts[0]}[/{color}]"
+        transcript = ' '.join(words)
+
+        return transcript
 
     def print(self, transcript, duration=None, partial=False):
         """Update the caption display with the latest transcription"""
         # Move to the beginning of the line and clear it
         sys.stdout.write("\r\033[K")  
+
+
+        # color code probabilities if contained in transcript
+        if '/' in transcript:
+            transcript = self._maybe_colorize_transcript_with_probabilities(transcript, add_probabilities=False)
 
         if duration:
             text = f"{transcript} ({duration:.2f} sec)"

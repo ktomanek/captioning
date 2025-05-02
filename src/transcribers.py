@@ -68,6 +68,8 @@ class WhisperTranscriber(Transcriber):
     AVAILABLE_MODELS = {'whisper_tiny': 'tiny',
                         'whisper_base': 'base',
                         'whisper_small': 'small'}
+    
+    USE_WORD_PROBABILITIES = True  
 
     def _load_model(self, model_name):
         if model_name not in self.AVAILABLE_MODELS.keys():
@@ -88,14 +90,25 @@ class WhisperTranscriber(Transcriber):
     def _transcribe(self, audio_data, segment_end):
         # for partial transcriptions, we are using smaller beam size
         beam_size = 5 if segment_end else 1
+
+        use_word_probabilities = self.USE_WORD_PROBABILITIES and segment_end
         segments, _ = self.model.transcribe(
             audio_data,
             beam_size=beam_size,
             language='en',
             condition_on_previous_text=False,
-            vad_filter=False
+            vad_filter=False,
+            word_timestamps=use_word_probabilities,
         )
-        return ' '.join(segment.text for segment in segments if segment.text).strip()
+        pred = ''
+        for segment in segments:
+            if use_word_probabilities:
+                for word in segment.words:
+                    pred += word.word + '/' + str(word.probability) + ' '
+            else:
+                pred += segment.text + ' '
+        return pred.strip()
+
 
 class NemoTranscriber(Transcriber):
 
@@ -108,6 +121,9 @@ class NemoTranscriber(Transcriber):
                         'nemo_rnnt': RNNT_MODEL,
                         'nemo_canary': E2E_MODEL}
 
+
+    # TODO grab word probabilities from the model to colorize outputs 
+    # as done in WhisperTranscriber
 
     def _load_model(self, model_name):
         if model_name not in self.AVAILABLE_MODELS.keys():
@@ -135,8 +151,6 @@ class NemoTranscriber(Transcriber):
         print(f"Loaded Nemo model: {model_name} --> {full_model_name}")
 
     def _transcribe(self, audio_data, segment_end):
-        # output = self.model.transcribe([audio_data])
-        # return output[0].text if output else ""
         if self.model_name == self.E2E_MODEL:
             output = self.model.transcribe(
                 audio_data, batch_size=1,
