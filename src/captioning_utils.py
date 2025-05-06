@@ -22,8 +22,15 @@ def get_argument_parser():
         help="ASR model to use.",
     )
     parser.add_argument(
+        "--show_word_confidence_scores",
+        action="store_true",
+        default=False,
+        help="Calculate and show per-word confidence scores.",
+    )
+    parser.add_argument(
         "--rich_captions",
         action="store_true",
+        default=False,
         help="Use rich captions for terminal output. Might not work on all terminals.",
     )
     parser.add_argument(
@@ -77,16 +84,16 @@ MAXIMUM_SEGMENT_DURATION = 10.0
 ######################################
 
 
-def load_asr_model(model_name, sampling_rate=SAMPLING_RATE):
+def load_asr_model(model_name, sampling_rate=SAMPLING_RATE, show_word_confidence_scores=False):
     logging.debug("Loading ASR model...")
     if model_name.startswith('whisper'):
-        asr_model = transcribers.WhisperTranscriber(model_name, sampling_rate)
+        asr_model = transcribers.WhisperTranscriber(model_name, sampling_rate, show_word_confidence_scores)
     elif model_name.startswith('nemo'):
-        asr_model = transcribers.NemoTranscriber(model_name, sampling_rate)
+        asr_model = transcribers.NemoTranscriber(model_name, sampling_rate, show_word_confidence_scores)
     elif model_name.startswith('moonshine'):
-        asr_model = transcribers.MoonshineTranscriber(model_name, sampling_rate)
+        asr_model = transcribers.MoonshineTranscriber(model_name, sampling_rate, show_word_confidence_scores)
     elif model_name.startswith('remote'):
-        asr_model = transcribers.RemoteGPUTranscriber(model_name, sampling_rate)
+        asr_model = transcribers.RemoteGPUTranscriber(model_name, sampling_rate, show_word_confidence_scores)
     print(f"ASR model {model_name} loaded.")
     return asr_model
 

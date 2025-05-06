@@ -8,7 +8,7 @@ import time
 
 class Transcriber():
 
-    def __init__(self, model_name_or_path, sampling_rate):
+    def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False):
         self.number_of_partials_transcribed = 0
         self.speech_segments_transcribed = 0
         self.speech_frames_transcribed = 0
@@ -17,6 +17,7 @@ class Transcriber():
 
         self.sampling_rate = sampling_rate
         self.model_name = model_name_or_path
+        self.show_word_confidence_scores = show_word_confidence_scores
 
         process = psutil.Process(os.getpid())
         mem_before = process.memory_info().rss  # in bytes
@@ -69,8 +70,6 @@ class WhisperTranscriber(Transcriber):
                         'whisper_base': 'base',
                         'whisper_small': 'small'}
     
-    USE_WORD_PROBABILITIES = True  
-
     def _load_model(self, model_name):
         if model_name not in self.AVAILABLE_MODELS.keys():
             raise ValueError(f"Model {model_name} is not supported by WhisperTranscriber.")
@@ -86,7 +85,7 @@ class WhisperTranscriber(Transcriber):
         # for partial transcriptions, we are using smaller beam size
         beam_size = 5 if segment_end else 1
 
-        use_word_probabilities = self.USE_WORD_PROBABILITIES and segment_end
+        use_word_probabilities = self.show_word_confidence_scores and segment_end
         segments, _ = self.model.transcribe(
             audio_data,
             beam_size=beam_size,
