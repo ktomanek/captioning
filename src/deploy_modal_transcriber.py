@@ -7,6 +7,10 @@
 # The launch, run:
 # modal deploy deploy_modal_transcriber.py
 
+# TODO use scaledown_window instead of container_idle_timeout for later versions of modal
+# see https://modal.com/docs/reference/modal.App#cls
+
+
 import modal
 
 MODAL_APP_NAME = "asr-service"
@@ -32,9 +36,7 @@ cuda_image = (
 
 app = modal.App(MODAL_APP_NAME)
 
-# TODO set scaledown_window and other handling
-# see https://modal.com/docs/reference/modal.App#cls
-@app.cls(image=cuda_image, gpu="L4")
+@app.cls(image=cuda_image, gpu="L4", container_idle_timeout=180)
 class FasterWhisper:
     @modal.enter()
     def enter(self):
@@ -70,7 +72,7 @@ class FasterWhisper:
         return transcription.strip()
 
 
-@app.cls(image=nemo_image, gpu="L4")
+@app.cls(image=cuda_image, gpu="L4", container_idle_timeout=180)
 class NemoASR:
     @modal.enter()
     def enter(self):

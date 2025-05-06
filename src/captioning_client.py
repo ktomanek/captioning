@@ -26,16 +26,10 @@ parser.add_argument(
     help="Index of the audio input device to use (default is 1).",
 )
 parser.add_argument(
-    "--host",
+    "--server_url",
     type=str,
-    default="localhost",
+    default="https://127.0.0.1:5001",
     help="Hostname where the captioning server is running (default is localhost).",
-)
-parser.add_argument(
-    "--port",
-    type=str,
-    default="5001",
-    help="Port of the captioning server (default is 5001).",
 )
 parser.add_argument(
     "--show_audio_devices",
@@ -67,9 +61,9 @@ else:
     device_index = input_device['index']
 
 
-# connect to server
-server_url = f"http://{args.host}:{args.port}"
-sio = socketio.Client()
+# connect to server (disable SSL verification for self-signed cert)
+server_url = args.server_url
+sio = socketio.Client(ssl_verify=False)
 
 
 @sio.event
