@@ -38,21 +38,26 @@
         }
         
         #transcription-container {
-            margin-top: 20px;
+            margin-top: 10px;
             padding: 15px;
             border: 1px solid #ddd;
             border-radius: 5px;
             background-color: #f9f9f9;
-            min-height: 200px;
+            min-height: 50vh;
+            max-height: 50vh;
+            overflow-y: auto;
         }
         
         #partial-transcription {
             color: #666;
             font-style: italic;
+            #margin-bottom: 5px;
+            #margin-top: 5px;
         }
         
         #final-transcription {
-            margin-bottom: 15px;
+            margin-bottom: 5px;
+            margin-top: 5px;
         }
         
         .controls {
@@ -247,11 +252,11 @@
                     // Display final transcription and clear partial
                     finalTranscriptionEl.innerHTML += `<p>${processedTranscript}</p>`;
                     partialTranscriptionEl.innerHTML = '';
-                    
-                    // Auto-scroll to the latest transcription
-                    const container = document.getElementById('transcription-container');
-                    container.scrollTop = container.scrollHeight;
                 }
+                
+                // Auto-scroll to the latest transcription for both partial and final
+                const container = document.getElementById('transcription-container');
+                container.scrollTop = container.scrollHeight;
                 
                 // Reset idle timer when receiving transcription data
                 resetIdleTimer();
@@ -420,13 +425,7 @@
             const remainingSeconds = Math.floor(seconds % 60);
             idleTimerEl.textContent = `Auto-disconnect in: ${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
         }
-        
-        // function registerUserActivity() {
-        //     if (socket && socket.connected) {
-        //         resetIdleTimer();
-        //     }
-        // }
-        
+                
         // Add event listeners for user activity
         document.addEventListener('mousemove', registerUserActivity);
         document.addEventListener('keypress', registerUserActivity);
