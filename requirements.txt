@@ -8,4 +8,4 @@ jiwer
 transformers
 flask
 flask_socketio
-websocket-client
+python-socketio[client]
