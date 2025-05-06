@@ -200,7 +200,15 @@ def main():
                                 caption_printer, args.rtf)
     else:
         audio = pyaudio.PyAudio()
-        audio_stream = captioning_utils.get_audio_stream(audio, input_device_index=args.audio_input_device_index)
+        device_index = args.audio_input_device_index
+        if device_index:
+            print(f"Using user specified audio input device index: {device_index}")
+        else:
+            # find default device index
+            input_device = captioning_utils.find_default_input_device()
+            print(f"Using default audio input device: {input_device}")
+            device_index = input_device['index']
+        audio_stream = captioning_utils.get_audio_stream(audio, input_device_index=device_index)
         capture_audio_from_stream(audio_stream, audio_queue, stop_threads, caption_printer)
 
         audio.terminate()

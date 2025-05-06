@@ -54,7 +54,6 @@ def get_argument_parser():
     parser.add_argument(
         "--audio_input_device_index",
         type=int,
-        default=1,
         help="Index of the audio input device to use (default is 1).",
     )
     parser.add_argument(
@@ -201,3 +200,39 @@ def list_audio_devices():
         device_info = p.get_device_info_by_index(i)
         print(f"* Device [{i}]: {device_info['name']} \t input channels: {device_info['maxInputChannels']}, output channels: {device_info['maxOutputChannels']}")
     p.terminate()
+
+
+# find best audio input device by picking the one with at least one input channel and name 'default'
+def find_best_audio_input_device():
+    p = pyaudio.PyAudio()
+    best_device_index = None
+    for i in range(p.get_device_count()):
+        device_info = p.get_device_info_by_index(i)
+        print('device', device_info['name'], 'input channels', device_info['maxInputChannels'])
+        if device_info['maxInputChannels'] > 0 and 'default' in device_info['name'].lower():
+            best_device_index = i
+            break
+    p.terminate()
+    return best_device_index
+
+
+def find_default_input_device():
+    """Find the default microphone device using PyAudio. If no default device is found, list all available input devices."""
+    p = pyaudio.PyAudio()
+    default_info = p.get_default_input_device_info()
+    p.terminate()
+    if default_info:
+        print(f"Default input device: {default_info['name']} (index: {default_info['index']})")
+        return {
+            'name': default_info['name'],
+            'index': default_info['index']
+        }
+
+    if not default_info:
+        print("\nAll available input devices:")
+        list_audio_devices()
+        return None
+
+if __name__ == "__main__":
+    default_mic = find_default_input_device()
+    print(default_mic)#['name'], default_mic['index'])

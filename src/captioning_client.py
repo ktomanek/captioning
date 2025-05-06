@@ -55,8 +55,20 @@ if args.rich_captions:
 else:
     caption_printer = printers.PlainCaptionPrinter()
 
-server_url = f"http://{args.host}:{args.port}"
 
+# identify the audio input device
+device_index = args.audio_input_device_index
+if device_index:
+    print(f"Using user specified audio input device index: {device_index}")
+else:
+    # find default device index
+    input_device = captioning_utils.find_default_input_device()
+    print(f"Using default audio input device: {input_device}")
+    device_index = input_device['index']
+
+
+# connect to server
+server_url = f"http://{args.host}:{args.port}"
 sio = socketio.Client()
 
 
@@ -85,16 +97,14 @@ def handle_transcription(data):
 def handle_server_config(data):
     print(f"ASR server configuration:\n{data}")
 
-
-
 sio.connect(server_url)
 
-audio = pyaudio.PyAudio()
-print("Recording started. Press Ctrl+C to stop.")
 
 
 try:
-    audio_stream = captioning_utils.get_audio_stream(audio, input_device_index=args.audio_input_device_index)
+    audio = pyaudio.PyAudio()
+    audio_stream = captioning_utils.get_audio_stream(audio, input_device_index=device_index)
+    print("Recording started. Press Ctrl+C to stop.")
     logging.info("Started audio stream...")
     caption_printer.start()
 

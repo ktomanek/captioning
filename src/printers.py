@@ -18,7 +18,6 @@ class CaptionPrinter:
 
 class PlainCaptionPrinter(CaptionPrinter):
     def start(self):
-        os.system('clear')
         print("---------------------------  Transcribing speech ----------------------------")
 
     def stop(self):
