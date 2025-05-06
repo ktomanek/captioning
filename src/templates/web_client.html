@@ -141,13 +141,15 @@
     </div>
     
     <div id="server-config" class="config-info"></div>
+    <div id="idle-timer-info" class="config-info" style="font-size: 0.8em; color: #888;"></div>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
         // Configuration
         const SAMPLE_RATE = 16000;
         const AUDIO_FRAMES_TO_CAPTURE = 512; // Match server's expected frame size
-        
+        const IDLE_TIMEOUT = 60*1000*1; // disconnect client after idle timeout (milliseconds)
+
         // DOM Elements
         const connectBtn = document.getElementById('connect-btn');
         const disconnectBtn = document.getElementById('disconnect-btn');
@@ -158,6 +160,7 @@
         const finalTranscriptionEl = document.getElementById('final-transcription');
         const partialTranscriptionEl = document.getElementById('partial-transcription');
         const serverConfigEl = document.getElementById('server-config');
+        const idleTimerEl = document.getElementById('idle-timer-info');
         
         // State variables
         let socket;
@@ -165,6 +168,7 @@
         let microphone;
         let processor;
         let isRecording = false;
+        let idleTimer;
         
         // Connect to the server
         function connectToServer() {
@@ -195,6 +199,9 @@
                 clearTranscriptions();
                 
                 socket.emit('server_config_request');
+                
+                // Start the idle timer
+                resetIdleTimer();
             });
             
             socket.on('disconnect', () => {
@@ -214,7 +221,7 @@
             
             socket.on('connect_error', (error) => {
                 console.error('Connection error:', error);
-                statusEl.textContent = 'Connection failed';
+                statusEl.textContent = `Connection failed: ${error.message || error.type || 'Unknown error'} -- this is likely because another client is already connected.`;
                 connectBtn.disabled = false;
                 disconnectBtn.disabled = true;
             });
@@ -245,6 +252,9 @@
                     const container = document.getElementById('transcription-container');
                     container.scrollTop = container.scrollHeight;
                 }
+                
+                // Reset idle timer when receiving transcription data
+                resetIdleTimer();
             });
             
             socket.on('audio_processed', (data) => {
@@ -266,12 +276,19 @@
                 stopRecording();
             }
             
+            // Clear the idle timer and update interval
+            clearTimeout(idleTimer);
+            clearInterval(window.idleUpdateInterval);
+            idleTimerEl.textContent = '';
+            
             // Disconnect socket
             socket.disconnect();
         }
         
         // Start audio recording and streaming
         async function startRecording() {
+            // Reset the idle timer since user is actively using the app
+            resetIdleTimer();
             try {
                 // Request microphone access
                 const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -354,6 +371,7 @@
         function clearTranscriptions() {
             finalTranscriptionEl.innerHTML = '';
             partialTranscriptionEl.innerHTML = '';
+            
         }
         
         // Event listeners
@@ -363,8 +381,60 @@
         stopBtn.addEventListener('click', stopRecording);
         clearBtn.addEventListener('click', clearTranscriptions);
         
+        // Functions to manage idle timeout
+        function resetIdleTimer() {
+            // Clear any existing timer and interval
+            clearTimeout(idleTimer);
+            clearInterval(window.idleUpdateInterval);
+            
+            // Set a new timer
+            idleTimer = setTimeout(() => {
+                if (socket && socket.connected) {
+                    console.log('Disconnecting due to inactivity after ' + (IDLE_TIMEOUT/1000) + ' seconds');
+                    statusEl.textContent = 'Disconnected (idle timeout)';
+                    disconnectFromServer();
+                }
+            }, IDLE_TIMEOUT);
+            
+            // Update the timer display every second
+            let timeLeft = IDLE_TIMEOUT / 1000;
+            
+            if (socket && socket.connected) {
+                updateIdleTimerDisplay(timeLeft);
+                
+                window.idleUpdateInterval = setInterval(() => {
+                    timeLeft -= 1;
+                    if (timeLeft > 0) {
+                        updateIdleTimerDisplay(timeLeft);
+                    } else {
+                        clearInterval(window.idleUpdateInterval);
+                    }
+                }, 1000);
+            } else {
+                idleTimerEl.textContent = '';
+            }
+        }
+        
+        function updateIdleTimerDisplay(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.floor(seconds % 60);
+            idleTimerEl.textContent = `Auto-disconnect in: ${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+        }
+        
+        // function registerUserActivity() {
+        //     if (socket && socket.connected) {
+        //         resetIdleTimer();
+        //     }
+        // }
+        
+        // Add event listeners for user activity
+        document.addEventListener('mousemove', registerUserActivity);
+        document.addEventListener('keypress', registerUserActivity);
+        document.addEventListener('click', registerUserActivity);
+        
         // Clean up when the page unloads
         window.addEventListener('beforeunload', () => {
+            clearTimeout(idleTimer);
             if (socket && socket.connected) {
                 socket.disconnect();
             }
