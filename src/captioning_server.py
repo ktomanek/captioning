@@ -99,6 +99,12 @@ def handle_audio(data):
 
 
 
+def run_http_server():
+    socketio.run(app, host='0.0.0.0', port=5002)
+
+def run_https_server():
+    socketio.run(app, host='0.0.0.0', port=5001, ssl_context='adhoc')
+
 if __name__ == '__main__':
-    # Start the Flask-SocketIO server with self-signed SSL certificate so that it can be accessed via HTTPS (dev use only!)
-    socketio.run(app, host='0.0.0.0', port=5001, debug=True, ssl_context='adhoc')
+    # run_http_server()
+    run_https_server()
