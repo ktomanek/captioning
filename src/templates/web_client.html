@@ -110,6 +110,19 @@
             color: #555;
         }
         
+        #mic-indicator-container {
+            display: flex;
+            margin-left: 15px;
+            align-items: center;
+        }
+        
+        @media (max-width: 600px) {
+            #mic-indicator-container {
+                margin: 10px auto;
+                justify-content: center;
+            }
+        }
+        
         /* Word confidence styling */
         .confidence-high {
             color: #2e7d32; /* Dark green */
@@ -138,6 +151,12 @@
             <button id="clear-btn" class="btn-action" disabled>Clear Transcripts</button>
         </div>
         <span id="status" class="status">Disconnected</span>
+        <div id="mic-indicator-container" style="display: none; margin-left: 15px; align-items: center;">
+            <div style="margin-right: 5px;">🎤</div>
+            <div id="mic-level-indicator" style="width: 50px; height: 10px; background-color: #eee; border-radius: 5px; overflow: hidden;">
+                <div id="mic-level-bar" style="width: 0%; height: 100%; background-color: #4CAF50; transition: width 0.1s ease-in-out;"></div>
+            </div>
+        </div>
     </div>
     
     <div id="transcription-container">
@@ -263,8 +282,8 @@
             });
             
             socket.on('audio_processed', (data) => {
-                // Optional: You can use this to update UI with processing status
-                // console.log('Audio processed:', data);
+                // We now handle audio level calculation directly in the browser
+                // so no need to process it from the server response
             });
             
             // Update UI
@@ -318,6 +337,20 @@
                     // Get audio data from the buffer
                     const inputData = e.inputBuffer.getChannelData(0);
                     
+                    // Calculate audio level for microphone activity indicator
+                    // Calculate RMS (root mean square) audio level
+                    let sumSquares = 0;
+                    for (let i = 0; i < inputData.length; i++) {
+                        sumSquares += inputData[i] * inputData[i];
+                    }
+                    const rms = Math.sqrt(sumSquares / inputData.length);
+                    // Normalize to a 0-100 scale (0.0-1.0 float32 data)
+                    // Typical speech is around 0.1-0.3 in normalized float data
+                    const normalizedLevel = Math.min(100, Math.max(0, rms * 400)); // Scaling factor to make it more visible
+                    
+                    // Update microphone activity indicator
+                    updateMicrophoneActivityIndicator(normalizedLevel);
+                    
                     // Convert float32 to int16 (matching the server's format)
                     const int16Data = new Int16Array(inputData.length);
                     for (let i = 0; i < inputData.length; i++) {
@@ -339,6 +372,9 @@
                 startBtn.disabled = true;
                 stopBtn.disabled = false;
                 clearBtn.disabled = true;
+                
+                // Show microphone indicator
+                document.getElementById('mic-indicator-container').style.display = 'flex';
                 
             } catch (err) {
                 console.error('Error accessing microphone:', err);
@@ -370,6 +406,11 @@
             startBtn.disabled = false;
             stopBtn.disabled = true;
             clearBtn.disabled = false;
+            
+            // Hide microphone indicator
+            document.getElementById('mic-indicator-container').style.display = 'none';
+            // Reset the mic level bar
+            document.getElementById('mic-level-bar').style.width = '0%';
         }
         
         // Clear all transcriptions
@@ -441,6 +482,30 @@
                 stopRecording();
             }
         });
+        
+        /**
+         * Updates the microphone activity indicator based on the audio level
+         * 
+         * @param {number} level - Audio level from 0-100
+         */
+        function updateMicrophoneActivityIndicator(level) {
+            // Only update if recording is active
+            if (!isRecording) return;
+            
+            const micLevelBar = document.getElementById('mic-level-bar');
+            
+            // Update the width of the level bar
+            micLevelBar.style.width = `${level}%`;
+            
+            // Change color based on level
+            if (level > 75) {
+                micLevelBar.style.backgroundColor = '#F44336'; // Red for high levels
+            } else if (level > 40) {
+                micLevelBar.style.backgroundColor = '#FFC107'; // Amber for medium levels
+            } else {
+                micLevelBar.style.backgroundColor = '#4CAF50'; // Green for low levels
+            }
+        }
         
         /**
          * Process transcript text to highlight words based on confidence scores
