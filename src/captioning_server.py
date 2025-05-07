@@ -100,7 +100,7 @@ def handle_audio(data):
 
 
 def run_http_server():
-    socketio.run(app, host='0.0.0.0', port=5002)
+    socketio.run(app, host='0.0.0.0', port=5001)
 
 def run_https_server():
     socketio.run(app, host='0.0.0.0', port=5001, ssl_context='adhoc')
