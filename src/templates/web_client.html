@@ -337,16 +337,22 @@
                     // Get audio data from the buffer
                     const inputData = e.inputBuffer.getChannelData(0);
                     
-                    // Calculate audio level for microphone activity indicator
-                    // Calculate RMS (root mean square) audio level
-                    let sumSquares = 0;
+                    // Calculate audio level for microphone activity indicator using dBFS
+                    // First find peak amplitude (absolute value)
+                    let peakAmplitude = 0;
                     for (let i = 0; i < inputData.length; i++) {
-                        sumSquares += inputData[i] * inputData[i];
+                        peakAmplitude = Math.max(peakAmplitude, Math.abs(inputData[i]));
                     }
-                    const rms = Math.sqrt(sumSquares / inputData.length);
-                    // Normalize to a 0-100 scale (0.0-1.0 float32 data)
-                    // Typical speech is around 0.1-0.3 in normalized float data
-                    const normalizedLevel = Math.min(100, Math.max(0, rms * 400)); // Scaling factor to make it more visible
+                    
+                    // Convert to dBFS (decibels relative to full scale)
+                    // 0 dBFS = maximum level (amplitude of 1.0)
+                    // Formula: dBFS = 20 * log10(amplitude)
+                    const dbfs = peakAmplitude > 0 ? 20 * Math.log10(peakAmplitude) : -100;
+                    
+                    // Normalize to 0-100 scale for display
+                    // Typical speech ranges from -30 dBFS to -10 dBFS
+                    // -60 dBFS is very quiet, 0 dBFS is maximum
+                    const normalizedLevel = Math.min(100, Math.max(0, (dbfs + 60) * (100 / 60)));
                     
                     // Update microphone activity indicator
                     updateMicrophoneActivityIndicator(normalizedLevel);
@@ -497,13 +503,10 @@
             // Update the width of the level bar
             micLevelBar.style.width = `${level}%`;
             
-            // Change color based on level
-            if (level > 75) {
-                micLevelBar.style.backgroundColor = '#F44336'; // Red for high levels
-            } else if (level > 40) {
-                micLevelBar.style.backgroundColor = '#FFC107'; // Amber for medium levels
-            } else {
-                micLevelBar.style.backgroundColor = '#4CAF50'; // Green for low levels
+            // Change color based on level (dBFS scale)
+            micLevelBar.style.backgroundColor = '#4CAF50'; // Green for OK range
+            if (level < 50) {
+                micLevelBar.style.backgroundColor = '#FFC107'; // Amber when too low
             }
         }
         
