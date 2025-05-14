@@ -25,13 +25,15 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            max-width: 800px;
+            max-width: min(90vw, 1200px); /* Responsive width, but not too wide on large screens */
             margin: 0 auto;
             padding: 20px;
             line-height: 1.6;
             background-color: var(--bg-color);
             color: var(--text-color);
             transition: background-color 0.3s ease, color 0.3s ease;
+            height: 100vh; /* Use full viewport height */
+            box-sizing: border-box; /* Include padding in height calculation */
         }
         
         /* Mobile-specific styles */
@@ -64,12 +66,55 @@
             border: 1px solid var(--border-color);
             border-radius: 5px;
             background-color: var(--container-bg);
-            min-height: 50vh;
-            max-height: 50vh;
+            height: calc(90vh - 250px); /* Use most of the viewport height, subtracting space for header and controls */
             overflow-y: auto;
             font-size: 28px;
             line-height: 1.6;
             transition: background-color 0.3s ease, border-color 0.3s ease;
+            flex: 1; /* Allow flex growth */
+        }
+        
+        /* Add main container to use flexbox for vertical layout */
+        .main-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 40px); /* Full viewport height minus body padding */
+        }
+        
+        /* Make controls more compact */
+        .controls, .text-controls {
+            margin: 8px 0;
+        }
+        
+        /* Footer styles */
+        .footer {
+            margin-top: 5px;
+            font-size: 0.9em;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+        
+        .footer:hover {
+            opacity: 1;
+        }
+        
+        /* More compact layouts on smaller screens */
+        @media (max-height: 600px) {
+            #transcription-container {
+                height: calc(85vh - 160px);
+            }
+            
+            .controls, .text-controls {
+                margin: 4px 0;
+            }
+            
+            .footer {
+                margin-top: 3px;
+            }
+            
+            button {
+                padding: 6px 14px;
+            }
         }
         
         #partial-transcription {
@@ -149,59 +194,66 @@
             }
         }
         
-        /* Word confidence styling */
+        /* Word confidence styling using grayscale */
         .confidence-high {
-            color: #2e7d32; /* Dark green */
+            /* Normal text color (inherit from parent) */
         }
         
         .confidence-medium {
-            color: #f9a825; /* Amber */
+            /* Also use normal text color */
         }
         
         .confidence-low {
-            color: #c62828; /* Dark red */
+            color: #888888; /* Light gray for low confidence in light mode */
+        }
+        
+        body.dark-mode .confidence-low {
+            color: #666666; /* Darker gray for low confidence in dark mode */
         }
         
         .text-controls {
-            margin: 10px 0;
+            margin: 5px 0;
+        }
+        
+        .control-row {
             display: flex;
-            flex-direction: column;
-            gap: 10px;
+            gap: 20px;
+            flex-wrap: wrap;
         }
         
         .control-item {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+            flex: 1;
+            min-width: 200px;
         }
         
         .control-item label {
-            min-width: 150px;
+            min-width: 90px;
+            white-space: nowrap;
         }
         
         .control-item input[type="range"] {
             flex-grow: 1;
-            max-width: 200px;
         }
         
-        /* Header with theme toggle */
-        .header {
+        /* Status group and theme toggle */
+        .status-group {
             display: flex;
-            justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid var(--border-color);
+            gap: 5px;
         }
         
         .theme-toggle {
             background: transparent;
             border: none;
-            font-size: 24px;
+            font-size: 18px;
             cursor: pointer;
-            padding: 5px 10px;
-            border-radius: 5px;
+            padding: 3px 6px;
+            border-radius: 4px;
             transition: background-color 0.2s;
+            margin-left: 8px;
         }
         
         .theme-toggle:hover {
@@ -213,67 +265,71 @@
         }
         
         @media (max-width: 600px) {
-            .text-controls {
-                gap: 15px;
+            .control-row {
+                gap: 10px;
             }
             
             .control-item {
-                flex-direction: column;
-                align-items: flex-start;
+                min-width: 160px;
             }
             
-            .control-item input[type="range"] {
-                width: 100%;
-                max-width: none;
+            .control-item label {
+                min-width: 70px;
+                font-size: 0.9em;
             }
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Web Captioning Client</h1>
-        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light mode">
-            <span id="theme-icon">🌙</span>
-        </button>
-    </div>
-    
-    <div class="controls">
-        <div class="control-group">
-            <button id="connect-btn" class="btn-connect">Connect</button>
-            <button id="disconnect-btn" class="btn-disconnect" disabled>Disconnect</button>
-        </div>
-        <div class="control-group">
-            <button id="start-btn" class="btn-action" disabled>Start Captioning</button>
-            <button id="stop-btn" class="btn-action" disabled>Stop</button>
-            <button id="clear-btn" class="btn-action" disabled>Clear Transcripts</button>
-        </div>
-        <span id="status" class="status">Disconnected</span>
-        <div id="mic-indicator-container" style="display: none; margin-left: 15px; align-items: center;">
-            <div style="margin-right: 5px;">🎤</div>
-            <div id="mic-level-indicator" style="width: 50px; height: 10px; background-color: #eee; border-radius: 5px; overflow: hidden;">
-                <div id="mic-level-bar" style="width: 0%; height: 100%; background-color: #4CAF50; transition: width 0.1s ease-in-out;"></div>
+    <div class="main-container">
+        
+        <div class="controls">
+            <div class="control-group">
+                <button id="connect-btn" class="btn-connect">Connect</button>
+                <button id="disconnect-btn" class="btn-disconnect" disabled>Disconnect</button>
+            </div>
+            <div class="control-group">
+                <button id="start-btn" class="btn-action" disabled>Start Captioning</button>
+                <button id="stop-btn" class="btn-action" disabled>Stop</button>
+                <button id="clear-btn" class="btn-action" disabled>Clear Transcripts</button>
+            </div>
+            <div class="status-group">
+                <span id="status" class="status">Disconnected</span>
+                <button id="theme-toggle" class="theme-toggle" aria-label="Toggle dark/light mode">
+                    <span id="theme-icon">🌙</span>
+                </button>
+                <div id="mic-indicator-container" style="display: none; margin-left: 5px; align-items: center;">
+                    <div style="margin-right: 3px;">🎤</div>
+                    <div id="mic-level-indicator" style="width: 40px; height: 8px; background-color: #eee; border-radius: 4px; overflow: hidden;">
+                        <div id="mic-level-bar" style="width: 0%; height: 100%; background-color: #4CAF50; transition: width 0.1s ease-in-out;"></div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    
-    <div class="text-controls">
-        <div class="control-item">
-            <label for="font-size-slider">Font Size: <span id="font-size-value">28</span>px</label>
-            <input type="range" id="font-size-slider" min="16" max="72" value="28" step="2">
+        
+        <div class="text-controls">
+            <div class="control-row">
+                <div class="control-item">
+                    <label for="font-size-slider">Size: <span id="font-size-value">28</span>px</label>
+                    <input type="range" id="font-size-slider" min="16" max="72" value="28" step="2">
+                </div>
+                <div class="control-item">
+                    <label for="line-spacing-slider">Spacing: <span id="line-spacing-value">1.6</span></label>
+                    <input type="range" id="line-spacing-slider" min="1" max="3" value="1.6" step="0.1">
+                </div>
+            </div>
         </div>
-        <div class="control-item">
-            <label for="line-spacing-slider">Line Spacing: <span id="line-spacing-value">1.6</span></label>
-            <input type="range" id="line-spacing-slider" min="1" max="3" value="1.6" step="0.1">
+        
+        <div id="transcription-container">
+            <div id="final-transcription"></div>
+            <div id="partial-transcription"></div>
+        </div>
+        
+        <div class="footer">
+            <div id="server-config" class="config-info"></div>
+            <div id="idle-timer-info" class="config-info" style="font-size: 0.8em; color: #888;"></div>
         </div>
     </div>
-    
-    <div id="transcription-container">
-        <div id="final-transcription"></div>
-        <div id="partial-transcription"></div>
-    </div>
-    
-    <div id="server-config" class="config-info"></div>
-    <div id="idle-timer-info" class="config-info" style="font-size: 0.8em; color: #888;"></div>
 
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
@@ -680,7 +736,38 @@
                 document.body.classList.add('dark-mode');
                 themeIcon.textContent = '☀️';
             }
+            
+            // Initial container size adjustment
+            setTimeout(adjustContainerForScreenSize, 100); // Small delay to ensure all elements are rendered
         });
+        
+        // Handle window resize to optimize container size
+        function adjustContainerForScreenSize() {
+            // Get viewport dimensions
+            const viewportHeight = window.innerHeight;
+            const container = document.getElementById('transcription-container');
+            const mainContainer = document.querySelector('.main-container');
+            
+            // Calculate available space (viewport height minus other elements' height)
+            const controlsHeight = document.querySelector('.controls').offsetHeight;
+            const textControlsHeight = document.querySelector('.text-controls').offsetHeight;
+            const footerHeight = document.querySelector('.footer').offsetHeight;
+            const bodyPadding = 40; // 20px top + 20px bottom
+            
+            // Calculate optimal container height
+            const availableHeight = viewportHeight - controlsHeight - 
+                                   textControlsHeight - footerHeight - bodyPadding - 20; // 20px for margins
+            
+            // Set container height to use all available space (minimum 200px)
+            const optimalHeight = Math.max(200, availableHeight);
+            container.style.height = `${optimalHeight}px`;
+            
+            // Ensure the container scrolls to bottom if needed
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // Add resize event listener
+        window.addEventListener('resize', adjustContainerForScreenSize);
         
         // Clean up when the page unloads
         window.addEventListener('beforeunload', () => {
@@ -716,10 +803,10 @@
         
         /**
          * Process transcript text to highlight words based on confidence scores
-         * Similar to the RichCaptionPrinter in the Python code
+         * Only distinguishes between normal and low confidence words (using grayscale)
          * 
          * @param {string} transcript - The transcript text which may contain confidence scores
-         * @return {string} HTML formatted transcript with colored words based on confidence
+         * @return {string} HTML formatted transcript with gray words for low confidence
          */
         function processTranscriptWithConfidence(transcript) {
             // If there are no confidence scores, return the transcript as is
@@ -738,17 +825,15 @@
                     const text = parts[0];
                     const confidence = parseFloat(parts[1]);
                     
-                    // Determine confidence level class (same thresholds as in the Python code)
+                    // Simpler confidence classification - only mark low confidence words
                     let confidenceClass = '';
-                    if (confidence > 0.9) {
-                        confidenceClass = 'confidence-high';
-                    } else if (confidence > 0.7) {
-                        confidenceClass = 'confidence-medium';
-                    } else {
+                    if (confidence <= 0.7) {
                         confidenceClass = 'confidence-low';
+                    } else {
+                        confidenceClass = 'confidence-high';
                     }
                     
-                    // Add colored word without showing the confidence value
+                    // Add word with appropriate class without showing the confidence value
                     processedWords.push(`<span class="${confidenceClass}">${text}</span>`);
                 } else {
                     // Word doesn't have a confidence score, add it as is
