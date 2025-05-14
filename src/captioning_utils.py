@@ -15,19 +15,22 @@ import transcribers
 def get_argument_parser():
     parser = argparse.ArgumentParser(description="Real-time audio captioning using Whisper ASR and Silero VAD.")
     parser.add_argument(
+        "-m",
         "--model",
         type=str,
-        default="whisper_tiny",
+        default="moonshine_onnx_tiny",
         choices=list(transcribers.WhisperTranscriber.AVAILABLE_MODELS.keys()) + list(transcribers.NemoTranscriber.AVAILABLE_MODELS.keys()) + list(transcribers.MoonshineTranscriber.AVAILABLE_MODELS.keys()) + list(transcribers.RemoteGPUTranscriber.AVAILABLE_MODELS.keys()),
         help="ASR model to use.",
     )
     parser.add_argument(
+        "-c",
         "--show_word_confidence_scores",
         action="store_true",
         default=False,
         help="Calculate and show per-word confidence scores.",
     )
     parser.add_argument(
+        "-rc",
         "--rich_captions",
         action="store_true",
         default=False,
@@ -52,11 +55,13 @@ def get_argument_parser():
         help="Minimum silence duration in milliseconds to consider the end of a segment.",
     )
     parser.add_argument(
+        "-i",
         "--audio_input_device_index",
         type=int,
         help="Index of the audio input device to use (default is 1).",
     )
     parser.add_argument(
+        "-d",
         "--show_audio_devices",
         action="store_true",
         help="List available audio input devices and exit.",

@@ -13,6 +13,28 @@ import threading
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+def get_args():
+    # Extended command line arguments for evaluation.
+    parser = captioning_utils.get_argument_parser()
+    parser.add_argument(
+        "--server_host",
+        type=str,
+        default="0.0.0.0",
+        help="Port for server.",
+    )
+    parser.add_argument(
+        "--server_port",
+        type=str,
+        default="5002",
+    )
+    parser.add_argument(
+        "--no_https",
+        action="store_false",
+        default=True,
+    )
+
+    args = parser.parse_args()
+    return args
 
 class RemotePrinter(printers.CaptionPrinter):
     """Printer that sends transcriptions via websocket to a remote client."""
@@ -31,8 +53,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 
 client_connected = False  # Flag to track if a client is already connected
 
-parser = captioning_utils.get_argument_parser()
-args = parser.parse_args()
+args = get_args()
 
 remote_caption_printer = RemotePrinter()
 vad = captioning_utils.get_vad(eos_min_silence=args.eos_min_silence)
@@ -98,13 +119,8 @@ def handle_audio(data):
                                       })
 
 
-
-def run_http_server():
-    socketio.run(app, host='0.0.0.0', port=5001)
-
-def run_https_server():
-    socketio.run(app, host='0.0.0.0', port=5001, ssl_context='adhoc')
-
 if __name__ == '__main__':
-    # run_http_server()
-    run_https_server()
+    ssl_context = None
+    if args.no_https:
+        ssl_context='adhoc'
+    socketio.run(app, host=args.server_host, port=args.server_port, ssl_context=ssl_context)

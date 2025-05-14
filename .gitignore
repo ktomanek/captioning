@@ -1,5 +1,6 @@
 venv
 src/__pycache__
+src/experimental
 __pycache__
 experimental
 CLAUDE.md

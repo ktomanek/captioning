@@ -15,11 +15,13 @@ logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s -
 
 parser = argparse.ArgumentParser(description="Real-time audio captioning using Whisper ASR and Silero VAD.")
 parser.add_argument(
+    "-rc",
     "--rich_captions",
     action="store_true",
     help="Use rich captions for terminal output. Might not work on all terminals.",
 )
 parser.add_argument(
+    "-i",
     "--audio_input_device_index",
     type=int,
     default=1,
@@ -28,10 +30,11 @@ parser.add_argument(
 parser.add_argument(
     "--server_url",
     type=str,
-    default="https://127.0.0.1:5001",
+    default="https://127.0.0.1:5002",
     help="Hostname where the captioning server is running (default is localhost).",
 )
 parser.add_argument(
+    "-d",
     "--show_audio_devices",
     action="store_true",
     help="List available audio input devices and exit.",
