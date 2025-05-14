@@ -36,7 +36,7 @@ cuda_image = (
 
 app = modal.App(MODAL_APP_NAME)
 
-@app.cls(image=cuda_image, gpu="L4", container_idle_timeout=180)
+@app.cls(image=cuda_image, gpu="L4", scaledown_window=180)
 class FasterWhisper:
     @modal.enter()
     def enter(self):
@@ -49,17 +49,26 @@ class FasterWhisper:
         print("FasterWhisper model loaded.")
 
     @modal.method()
-    def transcribe(self, audio_chunk):
+    def transcribe(self, audio_chunk, translate_from_source_language=None):
         """Process audio chunks for transcription"""
         import numpy as np
         
         # Process audio
         audio_array = np.frombuffer(audio_chunk, dtype=np.float32)
 
+        task = 'transcribe'
+        language = 'en'
+        if translate_from_source_language:
+            task = 'translate'
+            language = translate_from_source_language
+
+        print(f"running {task} on {language}...")
+
         segments, _ = self.model.transcribe(
             audio_array,
             beam_size=5,
-            language='en',
+            language=language,
+            task=task,
             condition_on_previous_text=False,
             vad_filter=False,
             word_timestamps=True,
@@ -68,11 +77,11 @@ class FasterWhisper:
         for segment in segments:
                 for word in segment.words:
                     transcription += word.word + '/' + str(word.probability) + ' '
-        print(f"Transcription: {transcription}")
+        print(f"{task.upper()}: {transcription}")
         return transcription.strip()
 
 
-@app.cls(image=cuda_image, gpu="L4", container_idle_timeout=180)
+@app.cls(image=cuda_image, gpu="L4", scaledown_window=180)
 class NemoASR:
     @modal.enter()
     def enter(self):

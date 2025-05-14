@@ -123,3 +123,12 @@ Hardware tested
 * In general, Moonshine models significantly faster than tested Nemo models with much lower memory footprint (due to ONNX opt and smaller parameter size), but have higher WER (see HF leaderboard)
 
 
+# Translations
+
+the ```TranscriptionTranscriber``` can transcribe from a given source language to English. It uses a tiny Whisper model for partial transcriptions and a large Whisper model running on Modal for the final translations. 
+
+When running with the ```captioning_server.py``` there is a specific translation client that will show the original transcript (source language) and the translations (English) in separate windows.
+
+Since Whisper (esp tiny) doesn't work very well on non-EN, it is recommended to increase the transcription buffer (by setting --min_partial_duration):
+
+```python captioning_server.py -m translation_from_de  --min_partial_duration 0.5```

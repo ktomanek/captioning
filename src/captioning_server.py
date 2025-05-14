@@ -82,6 +82,10 @@ def index():
 def web_client():
     return render_template('web_client.html')
 
+@app.route('/translate')
+def translate_client():
+    return render_template('translations_client.html')
+
 @socketio.on('connect')
 def socket_connect():
     global client_connected
@@ -89,14 +93,14 @@ def socket_connect():
         logging.warning('Connection rejected: Another client is already connected')
         return False  # Reject the connection
     client_connected = True
-    print('Captioning Client connected')
+    print('Client connected')
 
 
 @socketio.on('disconnect')
 def socket_disconnect():
     global client_connected
     client_connected = False
-    print('Captioning Client disconnected')
+    print('Client disconnected')
 
 @socketio.on('server_config_request')
 def handle_server_config_request():

@@ -90,6 +90,7 @@ class WhisperTranscriber(Transcriber):
             audio_data,
             beam_size=beam_size,
             language='en',
+            task='transcribe',
             condition_on_previous_text=False,
             vad_filter=False,
             word_timestamps=use_word_probabilities,
@@ -103,6 +104,57 @@ class WhisperTranscriber(Transcriber):
                 pred += segment.text + ' '
         return pred.strip()
 
+class TranslationTranscriber(Transcriber):
+    """Model for partial transcripts show the source language, for final segments
+    the transcript is translated to English using a larger model running on Modal remotely.
+    """
+
+    AVAILABLE_MODELS = {'translation_from_es': 'es',
+                        'translation_from_de': 'de',
+                        'translation_from_fr': 'fr'
+                        }
+
+    def _load_model(self, model_name):
+        from faster_whisper import WhisperModel
+        import modal
+        import deploy_modal_transcriber
+
+        # set language
+        self.source_language = self.AVAILABLE_MODELS[model_name]
+        print(f"Set source language to: {self.source_language}")
+        
+        # load models
+        self.model_for_partials = WhisperModel('tiny', device="cpu", compute_type="int8")
+        logging.info(f"Loaded Whisper model: tiny")
+        self.model_for_segments = modal.Cls.from_name(deploy_modal_transcriber.MODAL_APP_NAME, "FasterWhisper")
+        print(f"Connecting to remote model on Modal: {self.model_for_segments} -- this may take up to 2 minutes if service needs to be started.")
+        # send random audio to trigger model loading
+        random_audio_np = np.random.rand(16000).astype(np.float32)
+        _ = self.model_for_segments().transcribe.remote(random_audio_np)
+        print(f"Remote model loaded!")
+
+        
+    def _transcribe(self, audio_data, segment_end):
+
+        if segment_end:
+            text = self.model_for_segments().transcribe.remote(
+                audio_data, translate_from_source_language=self.source_language)
+        else:
+            segments, _ = self.model_for_partials.transcribe(
+                audio_data,
+                beam_size=1,
+                language=self.source_language,
+                task='transcribe',
+                condition_on_previous_text=False,
+                vad_filter=True,
+                word_timestamps=False,
+            )
+            text = ''
+            for segment in segments:
+                    text += segment.text + ' '
+            return text.strip()
+
+        return text.strip() if text else ""
 
 class NemoTranscriber(Transcriber):
 
