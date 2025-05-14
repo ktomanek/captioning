@@ -344,6 +344,45 @@
             cursor: not-allowed;
         }
         
+        /* Captioning toggle button */
+        .captioning-toggle {
+            background-color: rgba(0, 0, 0, 0.1); /* Neutral background */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+        }
+        
+        body.dark-mode .captioning-toggle {
+            background-color: rgba(255, 255, 255, 0.1); /* Lighter background in dark mode */
+        }
+        
+        .captioning-toggle.recording {
+            background-color: rgba(0, 0, 0, 0.15); /* Slightly darker when recording */
+        }
+        
+        body.dark-mode .captioning-toggle.recording {
+            background-color: rgba(255, 255, 255, 0.15); /* Slightly lighter in dark mode when recording */
+        }
+        
+        .captioning-toggle:hover {
+            opacity: 0.9;
+        }
+        
+        .captioning-toggle:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        
         /* Theme control */
         .theme-control {
             display: flex;
@@ -403,6 +442,7 @@
             <div class="controls-bar">
                 <div class="essential-controls">
                     <button id="connection-toggle" class="connection-toggle">Connect</button>
+                    <button id="captioning-toggle" class="captioning-toggle" disabled><span id="captioning-icon">🔴</span></button>
                     <span id="status" class="status">Disconnected</span>
                     <div id="mic-indicator-container" style="display: none; margin-left: 5px; align-items: center;">
                         <div style="margin-right: 3px;">🎤</div>
@@ -417,8 +457,6 @@
                     <div class="controls-content">
                         <div class="controls">
                             <div class="control-group">
-                                <button id="start-btn" class="btn-action" disabled>Start Captioning</button>
-                                <button id="stop-btn" class="btn-action" disabled>Stop</button>
                                 <button id="clear-btn" class="btn-action" disabled>Clear Transcripts</button>
                             </div>
                         </div>
@@ -464,8 +502,8 @@
 
         // DOM Elements
         const connectionToggle = document.getElementById('connection-toggle');
-        const startBtn = document.getElementById('start-btn');
-        const stopBtn = document.getElementById('stop-btn');
+        const captioningToggle = document.getElementById('captioning-toggle');
+        const captioningIcon = document.getElementById('captioning-icon');
         const clearBtn = document.getElementById('clear-btn');
         const statusEl = document.getElementById('status');
         const finalTranscriptionEl = document.getElementById('final-transcription');
@@ -489,6 +527,17 @@
             } else {
                 // If disconnected, connect
                 connectToServer();
+            }
+        }
+        
+        // Start or stop captioning
+        function toggleCaptioning() {
+            if (isRecording) {
+                // If recording, stop
+                stopRecording();
+            } else {
+                // If not recording, start
+                startRecording();
             }
         }
         
@@ -519,7 +568,7 @@
                 connectionToggle.disabled = false;
                 
                 // Enable appropriate buttons
-                startBtn.disabled = false;
+                captioningToggle.disabled = false;
                 clearBtn.disabled = false;
                 
                 // Clear transcripts when connecting
@@ -527,12 +576,20 @@
                 
                 socket.emit('server_config_request');
                 
+                // Automatically start recording when connected
+                setTimeout(() => {
+                    if (socket && socket.connected && !isRecording) {
+                        startRecording();
+                    }
+                }, 500); // Short delay to allow UI to update
+                
                 // Start the idle timer
                 resetIdleTimer();
             });
             
             socket.on('disconnect', () => {
                 statusEl.textContent = 'Disconnected';
+                // Always stop recording when disconnected
                 if (isRecording) {
                     stopRecording();
                 }
@@ -543,8 +600,7 @@
                 connectionToggle.disabled = false;
                 
                 // Disable appropriate buttons
-                startBtn.disabled = true;
-                stopBtn.disabled = true;
+                captioningToggle.disabled = true;
                 clearBtn.disabled = true;
                 
                 // Clear information
@@ -606,7 +662,7 @@
         function disconnectFromServer() {
             if (!socket) return;
             
-            // Stop recording if active
+            // Always stop recording when disconnecting
             if (isRecording) {
                 stopRecording();
             }
@@ -686,8 +742,8 @@
                 // Update UI
                 isRecording = true;
                 statusEl.textContent = 'Recording...';
-                startBtn.disabled = true;
-                stopBtn.disabled = false;
+                captioningIcon.textContent = '⬛'; // Black square for stop
+                captioningToggle.classList.add('recording');
                 clearBtn.disabled = false;
                 
                 // Show microphone indicator
@@ -720,8 +776,8 @@
             }
             
             // Update UI
-            startBtn.disabled = false;
-            stopBtn.disabled = true;
+            captioningIcon.textContent = '🔴'; // Red circle icon
+            captioningToggle.classList.remove('recording');
             clearBtn.disabled = false;
             
             // Hide microphone indicator
@@ -739,8 +795,7 @@
         
         // Event listeners
         connectionToggle.addEventListener('click', toggleConnection);
-        startBtn.addEventListener('click', startRecording);
-        stopBtn.addEventListener('click', stopRecording);
+        captioningToggle.addEventListener('click', toggleCaptioning);
         clearBtn.addEventListener('click', clearTranscriptions);
         
         // Functions to manage idle timeout
