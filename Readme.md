@@ -102,6 +102,7 @@ modes:
 
 * stream - streaming
 * offl - offline / non-streaming
+* mem - memory footprint
 
 Hardware tested
 
@@ -109,17 +110,18 @@ Hardware tested
 * MiniPC - Beelink Mini S, N100, 16GB
 * Mac M2 - Macbook Air M2, 16GB
 
-|                         | WER         || RTF Mac M2  || RTF MiniPC  || RTF Rasp ||
-| --                      |  -- | --    |  --   | --  |    -- | --  |    -- | --|
-| model                   | stream   | offl  |  stream| offl  |   stream| offl    |     stream|   offl |
-| moonshine-onnx-tiny     | 0.23 | 0.38 | 65.2 | 50.6 | 20.9 | 11.6 | 15.1 | 6.3 | 
-| moonshine-onnx-base     | 0.16 | -- | 32.9 | 16.1 | 12.6 | 5.1 | 7.8  | 1.9 | 
-| whisper-tiny            | 0.25 | 0.09 | 6.0  | 34.7 | 2.6  | 22.1 | 1.1  | 7.1 |
-| whisper-base            | 0.11 | 0.08 | 4.0  | 17.2 | 1.8  | 14.1 | 0.8  | 3.5 |
-| whisper-small           | 0.10 | 0.06 | 1.3  | 7.3  | 0.7  | 4.8  | 0.1  | 1.0 |
-| nemo-fastconformer-ctc  | 0.14 | 0.14 | 17.1 | 55.8 | 8.2  | 19.2 | 4.3  | 6.6 |
-| nemo-fastconformer-rnnt | 0.13 | 0.15 | 15.2 | 53.4 | 6.9  | 12.7 | 3.1  | 4.6 | 
-| vosk-tiny               | 0.31 | 0.18 | 19.2 | 25.8 | | | | |
+|                         | mem | WER         || RTF Mac M2  || RTF MiniPC  || RTF Rasp ||
+| --                      | -- |  -- | --    |  --   | --  |    -- | --  |    -- | --|
+| model                   | -  | stream   | offl  |  stream| offl  |   stream| offl    |     stream|   offl |
+| moonshine-onnx-tiny     | ~550 MB | 0.23 | 0.38 | 65.2 | 50.6 | 20.9 | 11.6 | 15.1 | 6.3 | 
+| moonshine-onnx-base     | ~970 MB | 0.16 | -- | 32.9 | 16.1 | 12.6 | 5.1 | 7.8  | 1.9 | 
+| whisper-tiny            | ~230 MB | 0.25 | 0.09 | 6.0  | 34.7 | 2.6  | 22.1 | 1.1  | 7.1 |
+| whisper-base            | ~320 MB | 0.11 | 0.08 | 4.0  | 17.2 | 1.8  | 14.1 | 0.8  | 3.5 |
+| whisper-small           | ~640 MB | 0.10 | 0.06 | 1.3  | 7.3  | 0.7  | 4.8  | 0.1  | 1.0 |
+| nemo-fastconformer-ctc  | na | 0.14 | 0.14 | 17.1 | 55.8 | 8.2  | 19.2 | 4.3  | 6.6 |
+| nemo-fastconformer-rnnt | na | 0.13 | 0.15 | 15.2 | 53.4 | 6.9  | 12.7 | 3.1  | 4.6 | 
+| vosk-tiny               | ~110 MB | 0.31 | 0.18 | 19.2 | 25.8 | | | | |
+
 
 
 ## Take-aways
