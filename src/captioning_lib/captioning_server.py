@@ -6,9 +6,9 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO
 import logging
 import numpy as np
-import printers
+from captioning_lib import printers
 import queue
-import captioning_utils
+from captioning_lib import captioning_utils
 import threading
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

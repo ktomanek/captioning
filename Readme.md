@@ -17,6 +17,10 @@ We're using [Modal](https://modal.com/docs/guide) here to enable on-demand usage
 
 # Installation
 
+Install library
+
+```pip install -e .```
+
 Base installation (will work with faster-whisper models)
 
 ```pip install -r requirements.txt``
@@ -44,6 +48,7 @@ To use the Modal based transcriber, also install:
 and then run
 
 ```modal setup```
+
 
 # Running Captioning App
 

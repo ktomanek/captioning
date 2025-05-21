@@ -4,7 +4,7 @@
 # See deploy_modal_transcriber.py for instructions on how to deploy the ASR service on Modal and
 # how to configure Modal.
 
-import deploy_modal_transcriber
+from captioning_lib import deploy_modal_transcriber
 import numpy as np
 import modal
 

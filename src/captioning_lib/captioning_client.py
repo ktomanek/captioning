@@ -5,10 +5,10 @@ import argparse
 import logging
 import numpy as np
 import pyaudio
-import printers
+from captioning_lib import printers
 import socketio
 import time
-import captioning_utils
+from captioning_lib import captioning_utils
 
 
 logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')

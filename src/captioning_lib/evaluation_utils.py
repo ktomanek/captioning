@@ -3,7 +3,7 @@
 import jiwer
 import numpy as np
 from typing import Dict, List, Tuple
-import printers
+from captioning_lib import printers
 
 import soundfile as sf
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer

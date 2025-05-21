@@ -1,6 +1,6 @@
 # for evaluation of offline/non-streaming ASR with same models
 import argparse
-import evaluation_utils
+from captioning_lib import evaluation_utils
 import jiwer
 from transcribers import WhisperTranscriber, NemoTranscriber, MoonshineTranscriber, VoskTranscriber
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer

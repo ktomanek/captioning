@@ -9,10 +9,10 @@
 
 import json
 import logging
-import printers
+from captioning_lib import printers
 import queue
-import captioning_utils
-import evaluation_utils
+from captioning_lib import captioning_utils
+from captioning_lib import evaluation_utils
 import pyaudio
 import threading
 import time

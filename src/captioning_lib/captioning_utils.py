@@ -8,8 +8,8 @@ import queue
 import time
 
 from silero_vad import VADIterator, load_silero_vad
-import printers
-import transcribers
+from captioning_lib import printers
+from captioning_lib import transcribers
 
 ########## configurations ##########
 def get_argument_parser():
