@@ -23,7 +23,8 @@ def get_argument_parser():
         list(transcribers.NemoTranscriber.AVAILABLE_MODELS.keys()) + 
         list(transcribers.MoonshineTranscriber.AVAILABLE_MODELS.keys()) + 
         list(transcribers.RemoteGPUTranscriber.AVAILABLE_MODELS.keys()) + 
-        list(transcribers.TranslationTranscriber.AVAILABLE_MODELS.keys()),
+        list(transcribers.TranslationTranscriber.AVAILABLE_MODELS.keys()) +
+        list(transcribers.VoskTranscriber.AVAILABLE_MODELS.keys()),
         help="ASR model to use.",
     )
     parser.add_argument(
@@ -104,6 +105,9 @@ def load_asr_model(model_name, sampling_rate=SAMPLING_RATE, show_word_confidence
         asr_model = transcribers.RemoteGPUTranscriber(model_name, sampling_rate, show_word_confidence_scores)
     elif model_name.startswith('translation'):
         asr_model = transcribers.TranslationTranscriber(model_name, sampling_rate, show_word_confidence_scores)
+    elif model_name.startswith('vosk'):
+        asr_model = transcribers.VoskTranscriber(model_name, sampling_rate, show_word_confidence_scores)
+
     print(f"ASR model {model_name} loaded.")
     return asr_model
 

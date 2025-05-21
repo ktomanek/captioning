@@ -51,7 +51,7 @@ class EvaluationPrinter(printers.CaptionPrinter):
 
 
 def read_audio_file(file_path: str) -> Tuple[np.ndarray, int]:
-    """Read audio file and return data and sample rate."""
+    """Read audio file and return data as float32 and sample rate."""
     data, sample_rate = sf.read(file_path)
     
     # Convert to mono if stereo

@@ -5,6 +5,7 @@ import numpy as np
 import os
 import psutil
 import time
+import json
 
 class Transcriber():
 
@@ -103,6 +104,33 @@ class WhisperTranscriber(Transcriber):
             else:
                 pred += segment.text + ' '
         return pred.strip()
+
+class VoskTranscriber(Transcriber):
+    AVAILABLE_MODELS = {'vosk_tiny': 'tiny'}
+
+    def _load_model(self, model_name):
+        from vosk import KaldiRecognizer, Model
+        self.model = Model(lang="en-us")
+        self.rec = KaldiRecognizer(self.model, self.sampling_rate)
+
+    def _transcribe(self, audio_data, segment_end):
+
+        # Vosk expects audio data as int16
+        audio_data = (audio_data * 32767).astype(np.int16)
+
+        # we're sort of not using vosk the way it is intended here (ie, having it do
+        # the streaming and VAD steps, hence not handling PartialResults here and FinalResult
+        # will likely not have anything either)
+        rec_end = self.rec.AcceptWaveform(audio_data.tobytes())
+        transcript = json.loads(self.rec.Result())["text"]
+
+        if segment_end:
+            final_result = json.loads(self.rec.FinalResult())
+            if final_result['text']:
+                t = final_result['text']
+                transcript += ' ' + t
+            self.rec.Reset()
+        return transcript
 
 class TranslationTranscriber(Transcriber):
     """Model for partial transcripts show the source language, for final segments

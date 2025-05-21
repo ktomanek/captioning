@@ -1,4 +1,5 @@
 venv
+venv_v312
 src/__pycache__
 src/experimental
 __pycache__

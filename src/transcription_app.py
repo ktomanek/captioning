@@ -2,12 +2,9 @@
 import argparse
 import evaluation_utils
 import jiwer
-from transcribers import WhisperTranscriber, NemoTranscriber, MoonshineTranscriber
+from transcribers import WhisperTranscriber, NemoTranscriber, MoonshineTranscriber, VoskTranscriber
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 transcript_normalizer = BasicTextNormalizer()
-
-
-
 
 
 def get_wer(reference_text: str, transcript_text: str, normalized: bool = True) -> float:
@@ -28,10 +25,14 @@ def get_transcriber(model_name, sampling_rate):
         return NemoTranscriber(model_name, sampling_rate)
     elif model_name in MoonshineTranscriber.AVAILABLE_MODELS:
         return MoonshineTranscriber(model_name, sampling_rate)
+    elif model_name in VoskTranscriber.AVAILABLE_MODELS:
+        return VoskTranscriber(model_name, sampling_rate)
+
     else:
         available_models = list(WhisperTranscriber.AVAILABLE_MODELS.keys()) + \
                           list(NemoTranscriber.AVAILABLE_MODELS.keys()) + \
-                          list(MoonshineTranscriber.AVAILABLE_MODELS.keys())
+                          list(MoonshineTranscriber.AVAILABLE_MODELS.keys()) + \
+                          list(VoskTranscriber.AVAILABLE_MODELS.keys())
         raise ValueError(f"Unknown model: {model_name}. Available models: {', '.join(available_models)}")
 
 def main():

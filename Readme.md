@@ -33,6 +33,10 @@ To install Moonshine ONNX models:
 
 ```pip install useful-moonshine-onnx@git+https://git@github.com/usefulsensors/moonshine.git#subdirectory=moonshine-onnx```
 
+To install the Vosk model:
+
+```pip install vosk```
+
 To use the Modal based transcriber, also install:
 
 ```pip install modal```
@@ -115,6 +119,7 @@ Hardware tested
 | whisper-small           | 0.10 | 0.06 | 1.3  | 7.3  | 0.7  | 4.8  | 0.1  | 1.0 |
 | nemo-fastconformer-ctc  | 0.14 | 0.14 | 17.1 | 55.8 | 8.2  | 19.2 | 4.3  | 6.6 |
 | nemo-fastconformer-rnnt | 0.13 | 0.15 | 15.2 | 53.4 | 6.9  | 12.7 | 3.1  | 4.6 | 
+| vosk-tiny               | 0.31 | 0.18 | 19.2 | 25.8 | | | | |
 
 
 ## Take-aways
