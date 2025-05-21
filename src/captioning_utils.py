@@ -123,77 +123,107 @@ def get_vad(eos_min_silence=EOS_MIN_SILENCE, vad_threshold=VAD_THRESHOLD, sampli
     print('VAD loaded.')
     return vad_iterator
 
-def transcription_worker(
-        asr,
-        audio_queue,
-        caption_printer,
-        vad,
-        stop_threads,
-        min_partial_duration=MINIMUM_PARTIAL_DURATION,
-        max_segment_duration=MAXIMUM_SEGMENT_DURATION):
-    """Worker thread that processes audio chunks for transcription"""
+class TranscriptionWorker():
 
-    # transcription logic inspired by 
-    # https://github.com/usefulsensors/moonshine/blob/main/demo/moonshine-onnx/live_captions.py
+    def __init__(self, sampling_rate):
+        self.sampling_rate = sampling_rate
+        self.is_speech_recording = False
+        self.had_speech = False
+        self.frames_since_last_speech = 0
+        self.transcribed_segments = []
 
-    speech_buffer = np.empty(0, dtype=np.float32)
-    is_speech_recording = False
-    time_since_last_transcription = time.time()
 
-    while not stop_threads.is_set():
-        try:
-            # read new chunk from queue and add to buffer
-            chunk = audio_queue.get(timeout=0.05)
-            chunk_np = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32768.0
-            speech_buffer = np.concatenate((speech_buffer, chunk_np))
-            speech_buffer_duration = len(speech_buffer) / SAMPLING_RATE
-            current_recording_duration = time.time() - time_since_last_transcription            
+    def reset(self):
+        self.is_speech_recording = False
+        self.had_speech = False
+        self.frames_since_last_speech = 0
+        self.transcribed_segments = []
 
-            # process speech in buffer depending on VAD event
-            vad_event = vad(chunk_np)
-            if vad_event:
-                logging.debug(f"VAD event detected: {vad_event}")
-                if "start" in vad_event:
-                    is_speech_recording = True
-                elif "end" in vad_event:
-                    # finish the segment by processing all so far and then flushing buffer
-                    is_speech_recording = False
-                    text = asr.transcribe(speech_buffer, segment_end=True)
-                    caption_printer.print(text, duration=speech_buffer_duration, partial=False)
-                    speech_buffer = np.empty(0, dtype=np.float32)  
-                    time_since_last_transcription = time.time()
-            else:
-                # no VAD event means recording state hasn't changed
-                if is_speech_recording:
-                    # force end a segment if it is getting too long even if no EOS detected by VAD
-                    if speech_buffer_duration > max_segment_duration:  # e.g., 5 seconds
-                        logging.debug(f"Max segment duration reached, ending segment: {speech_buffer_duration:.2f} sec")
+    def time_since_last_speech(self):
+        # seconds since last recording
+        return float(self.frames_since_last_speech) / self.sampling_rate
+
+
+    def transcription_worker(
+            self,
+            asr,
+            audio_queue,
+            caption_printer,
+            vad,
+            stop_threads,
+            min_partial_duration=MINIMUM_PARTIAL_DURATION,
+            max_segment_duration=MAXIMUM_SEGMENT_DURATION):
+        """Worker thread that processes audio chunks for transcription"""
+
+        # transcription logic inspired by 
+        # https://github.com/usefulsensors/moonshine/blob/main/demo/moonshine-onnx/live_captions.py
+
+        speech_buffer = np.empty(0, dtype=np.float32)
+        self.is_speech_recording = False
+        time_since_last_transcription = time.time()
+
+        while not stop_threads.is_set():
+            try:
+                # read new chunk from queue and add to buffer
+                chunk = audio_queue.get(timeout=0.05)
+                chunk_np = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32768.0
+                speech_buffer = np.concatenate((speech_buffer, chunk_np))
+                speech_buffer_duration = len(speech_buffer) / self.sampling_rate
+                current_recording_duration = time.time() - time_since_last_transcription            
+
+                # process speech in buffer depending on VAD event
+                vad_event = vad(chunk_np)
+                if vad_event:
+                    logging.debug(f"VAD event detected: {vad_event}")
+                    if "start" in vad_event:
+                        self.is_speech_recording = True
+                        self.had_speech = True
+                        self.frames_since_last_speech = 0
+                    elif "end" in vad_event:
+                        # finish the segment by processing all so far and then flushing buffer
+                        self.is_speech_recording = False
+                        self.frames_since_last_speech += len(chunk_np)
                         text = asr.transcribe(speech_buffer, segment_end=True)
                         caption_printer.print(text, duration=speech_buffer_duration, partial=False)
+                        self.transcribed_segments.append(text)
                         speech_buffer = np.empty(0, dtype=np.float32)  
                         time_since_last_transcription = time.time()
-
-                    # if we have enough data in the buffer, transcribe a partial
-                    elif current_recording_duration > min_partial_duration:
-                        logging.debug(f"Transcribing partial segment: {current_recording_duration:.2f} sec")
-                        text = asr.transcribe(speech_buffer, segment_end=False)
-                        d = len(speech_buffer) / SAMPLING_RATE
-                        caption_printer.print(text, duration=d, partial=True)
-                        time_since_last_transcription = time.time()
                 else:
-                    empty_frames_to_keep = int(0.1 * SAMPLING_RATE)
-                    speech_buffer = speech_buffer[-empty_frames_to_keep:]
+                    # no VAD event means recording state hasn't changed
+                    if self.is_speech_recording:
+                        # force end a segment if it is getting too long even if no EOS detected by VAD
+                        if speech_buffer_duration > max_segment_duration:  # e.g., 5 seconds
+                            logging.debug(f"Max segment duration reached, ending segment: {speech_buffer_duration:.2f} sec")
+                            text = asr.transcribe(speech_buffer, segment_end=True)
+                            caption_printer.print(text, duration=speech_buffer_duration, partial=False)
+                            self.transcribed_segments.append(text)
+                            speech_buffer = np.empty(0, dtype=np.float32)  
+                            time_since_last_transcription = time.time()
 
-        except queue.Empty:
-            continue
-        except Exception as e:
-            print(f"\nTranscription error: {e}")
+                        # if we have enough data in the buffer, transcribe a partial
+                        elif current_recording_duration > min_partial_duration:
+                            logging.debug(f"Transcribing partial segment: {current_recording_duration:.2f} sec")
+                            text = asr.transcribe(speech_buffer, segment_end=False)
+                            d = len(speech_buffer) / self.sampling_rate
+                            caption_printer.print(text, duration=d, partial=True)
+                            time_since_last_transcription = time.time()
+                    else:
+                        empty_frames_to_keep = int(0.1 * self.sampling_rate)
+                        speech_buffer = speech_buffer[-empty_frames_to_keep:]
 
-    if len(speech_buffer) > 0:
-        logging.debug("Flushing remaining speech buffer...")
-        text = asr.transcribe(speech_buffer, segment_end=True)
-        caption_printer.print(text, duration=len(speech_buffer) / SAMPLING_RATE, partial=False)
-        speech_buffer = np.empty(0, dtype=np.float32)
+                        self.frames_since_last_speech += len(chunk_np)
+
+            except queue.Empty:
+                continue
+            except Exception as e:
+                print(f"\nTranscription error: {e}")
+
+        if len(speech_buffer) > 0:
+            logging.debug("Flushing remaining speech buffer...")
+            text = asr.transcribe(speech_buffer, segment_end=True)
+            caption_printer.print(text, duration=len(speech_buffer) / self.sampling_rate, partial=False)
+            self.transcribed_segments.append(text)
+            speech_buffer = np.empty(0, dtype=np.float32)
 
 
 

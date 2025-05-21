@@ -61,7 +61,8 @@ asr_model = captioning_utils.load_asr_model(args.model, captioning_utils.SAMPLIN
                                             args.show_word_confidence_scores)
 audio_queue = queue.Queue(maxsize=1000)  
 stop_threads = threading.Event()  # Event to signal threads to stop
-transcriber = threading.Thread(target=captioning_utils.transcription_worker, 
+transcription_handler = captioning_utils.TranscriptionWorker(sampling_rate=captioning_utils.SAMPLING_RATE)
+transcriber = threading.Thread(target=transcription_handler.transcription_worker, 
                                 kwargs={'vad': vad,
                                         'asr': asr_model,
                                         'audio_queue': audio_queue,
