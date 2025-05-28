@@ -214,9 +214,14 @@ class TranscriptionWorker():
                         self.frames_since_last_speech += len(chunk_np)
 
             except queue.Empty:
+                if stop_threads.is_set():
+                    break
                 continue
             except Exception as e:
+                if stop_threads.is_set():
+                    break
                 print(f"\nTranscription error: {e}")
+                continue
 
         if len(speech_buffer) > 0:
             logging.debug("Flushing remaining speech buffer...")
@@ -224,7 +229,6 @@ class TranscriptionWorker():
             caption_printer.print(text, duration=len(speech_buffer) / self.sampling_rate, partial=False)
             self.transcribed_segments.append(text)
             speech_buffer = np.empty(0, dtype=np.float32)
-
 
 
 def get_audio_stream(audio, input_device_index=INPUT_DEVICE_INDEX):
