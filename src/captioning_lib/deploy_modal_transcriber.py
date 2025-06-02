@@ -7,11 +7,9 @@
 # The launch, run:
 # modal deploy deploy_modal_transcriber.py
 
-# TODO use scaledown_window instead of container_idle_timeout for later versions of modal
-# see https://modal.com/docs/reference/modal.App#cls
-
-
 import modal
+from pathlib import Path
+import numpy as np
 
 MODAL_APP_NAME = "asr-service"
 
@@ -36,22 +34,52 @@ cuda_image = (
 
 app = modal.App(MODAL_APP_NAME)
 
-@app.cls(image=cuda_image, gpu="L4", scaledown_window=180)
+volume = modal.Volume.from_name(MODAL_APP_NAME, create_if_missing=True)
+MODEL_DIR = Path("/models")
+
+@app.cls(
+    image=cuda_image, 
+    gpu="L4", 
+    scaledown_window=60 * 2, 
+    enable_memory_snapshot=True,
+    volumes={MODEL_DIR: volume})
+@modal.concurrent(max_inputs=2)
 class FasterWhisper:
+
+    sample_rate = 16000
+    model_id = 'large-v3-turbo'
+    model_path = None
+
+    def download_model(self):
+        from faster_whisper.utils import download_model
+        from pathlib import Path
+
+        self.model_path = MODEL_DIR / self.model_id
+
+        if not self.model_path.exists():
+            print(f"Downloading model to {self.model_path} ...")            
+            self.model_path.mkdir(parents=True)
+            download_model(self.model_id, output_dir=str(self.model_path))
+            print(f"Model downloaded successfully.")
+        else:
+            print(f"Model already available on {self.model_path}.")
+
     @modal.enter()
     def enter(self):
-        import torch
         from faster_whisper import WhisperModel
+        self.download_model()
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"Using device: {device}")
-        self.model = WhisperModel('large', device="cuda", compute_type="float16")
-        print("FasterWhisper model loaded.")
+        self.model = WhisperModel(str(self.model_path), device="cuda", compute_type="float16")
+        print(f"FasterWhisper model loaded.")
 
     @modal.method()
     def transcribe(self, audio_chunk, translate_from_source_language=None):
         """Process audio chunks for transcription"""
+        import time
         import numpy as np
+
+        t1 = time.time()
+        print(f"Transcription starting...")
         
         # Process audio
         audio_array = np.frombuffer(audio_chunk, dtype=np.float32)
@@ -81,7 +109,7 @@ class FasterWhisper:
         return transcription.strip()
 
 
-@app.cls(image=cuda_image, gpu="L4", scaledown_window=180)
+@app.cls(image=cuda_image, gpu="L4", scaledown_window=60 * 2)
 class NemoASR:
     @modal.enter()
     def enter(self):

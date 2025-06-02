@@ -43,7 +43,7 @@ To install the Vosk model:
 
 To use the Modal based transcriber, also install:
 
-```pip install modal```
+```pip install modal==1.0```
 
 and then run
 

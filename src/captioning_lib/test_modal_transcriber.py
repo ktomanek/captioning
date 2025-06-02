@@ -9,12 +9,12 @@ import numpy as np
 import modal
 
 asr_cls = modal.Cls.from_name(deploy_modal_transcriber.MODAL_APP_NAME, "FasterWhisper")
-#asr_cls = modal.Cls.from_name(deploy_modal_transcriber.MODAL_APP_NAME, "NemoASR")
+# asr_cls = modal.Cls.from_name(deploy_modal_transcriber.MODAL_APP_NAME, "NemoASR")
 print("ASRModel class loaded from modal:", asr_cls)
 
 # just transcribe
-random_audio_np = np.random.rand(16000).astype(np.float32)
-s = asr_cls().transcribe.remote(random_audio_np)
+audio_chunk = np.random.rand(16000).astype(np.float32)
+s = asr_cls().transcribe.remote(audio_chunk, None)
 print("Transcription result:", s)
 
 # translate
