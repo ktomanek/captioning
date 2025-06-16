@@ -7,9 +7,11 @@ import psutil
 import time
 import json
 
+DEFAULT_LANGUAGE = 'en'
+
 class Transcriber():
 
-    def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False):
+    def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE):
         self.number_of_partials_transcribed = 0
         self.speech_segments_transcribed = 0
         self.speech_frames_transcribed = 0
@@ -20,19 +22,20 @@ class Transcriber():
         self.model_name = model_name_or_path
         self.show_word_confidence_scores = show_word_confidence_scores
 
+        self.language = language
+        print(f"Setting model language to: {self.language}")
+
         process = psutil.Process(os.getpid())
         mem_before = process.memory_info().rss  # in bytes
         self._load_model(model_name_or_path)
         mem_after = process.memory_info().rss
         self.memory_used = mem_after - mem_before
         
-
         self._warmup_model()
         pass
 
     def _load_model(self, model_name_or_path):
         raise NotImplementedError("Subclasses should implement this method to load the model.")
-
 
     def _warmup_model(self):
         """Warm up the model by running a dummy transcription."""
@@ -86,14 +89,18 @@ class WhisperTranscriber(Transcriber):
         # for partial transcriptions, we are using smaller beam size
         beam_size = 5 if segment_end else 1
 
+        # use VAD filter only for full transcriptions
+        use_vad_filter = segment_end
+
+        # use word probabilities only for full transcriptions
         use_word_probabilities = self.show_word_confidence_scores and segment_end
         segments, _ = self.model.transcribe(
             audio_data,
             beam_size=beam_size,
-            language='en',
+            language=self.language,
             task='transcribe',
             condition_on_previous_text=False,
-            vad_filter=False,
+            vad_filter=use_vad_filter,
             word_timestamps=use_word_probabilities,
         )
         pred = ''
@@ -110,7 +117,12 @@ class VoskTranscriber(Transcriber):
 
     def _load_model(self, model_name):
         from vosk import KaldiRecognizer, Model
-        self.model = Model(lang="en-us")
+        lang_str = None
+        if self.language == 'en':
+            lang_str = 'en-us'
+        else:
+            raise ValueError(f"Language {self.language} is not supported by VoskTranscriber.")
+        self.model = Model(lang=lang_str)
         self.rec = KaldiRecognizer(self.model, self.sampling_rate)
 
     def _transcribe(self, audio_data, segment_end):
@@ -186,6 +198,11 @@ class TranslationTranscriber(Transcriber):
 
 class NemoTranscriber(Transcriber):
 
+    # TODO use other nemo models
+    # stt_en_fastconformer_hybrid_large_pc
+    # stt_de_fastconformer_hybrid_large_pc, stt_de_conformer_ctc_large, stt_de_conformer_transducer_large
+    # stt_es_fastconformer_hybrid_large_pc, stt_enes_conformer_ctc_large, stt_enes_conformer_transducer_large
+
     CTC_MODEL = 'nvidia/stt_en_fastconformer_ctc_large'
     RNNT_MODEL = 'nvidia/stt_en_fastconformer_transducer_large'
     E2E_MODEL = 'nvidia/canary-180m-flash'
@@ -200,6 +217,10 @@ class NemoTranscriber(Transcriber):
     # as done in WhisperTranscriber
 
     def _load_model(self, model_name):
+
+        if self.language != DEFAULT_LANGUAGE:
+            raise ValueError(f"Language {self.language} is not supported by NemoTranscriber.")
+
         if model_name not in self.AVAILABLE_MODELS.keys():
             raise ValueError(f"Model {model_name} is not supported by NemoTranscriber.")
         full_model_name = self.AVAILABLE_MODELS[model_name]
@@ -244,12 +265,15 @@ class NemoTranscriber(Transcriber):
 
         return output[0].text if output else ""
 
-
 class MoonshineTranscriber(Transcriber):
     AVAILABLE_MODELS = {'moonshine_onnx_tiny': 'tiny',
                         'moonshine_onnx_base': 'base'}
 
     def _load_model(self, model_name):
+
+        if self.language != DEFAULT_LANGUAGE:
+            raise ValueError(f"Language {self.language} is not supported by MoonshineTranscriber.")
+
         from moonshine_onnx import MoonshineOnnxModel, load_tokenizer
         if model_name not in self.AVAILABLE_MODELS.keys():
             raise ValueError(f"Model {model_name} is not supported by MoonshineTranscriber.")
@@ -265,7 +289,6 @@ class MoonshineTranscriber(Transcriber):
         text = self.tokenizer.decode_batch(tokens)[0]
         return text.strip() if text else ""
 
-
 class RemoteGPUTranscriber(Transcriber):
     """Runs a model on GPU via Modal functions.
     
@@ -276,6 +299,10 @@ class RemoteGPUTranscriber(Transcriber):
                         'remote_only': 'remote_only'}
 
     def _load_model(self, model_name_or_path):
+
+        if self.language != DEFAULT_LANGUAGE:
+            raise ValueError(f"Language {self.language} is not supported by RemoteGPUTranscriber.")
+
 
         # load local model: Moonshine ONNX
         logging.info("Loading local Moonshine ONNX model...")

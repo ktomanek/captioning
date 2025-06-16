@@ -57,8 +57,11 @@ args = get_args()
 
 remote_caption_printer = RemotePrinter()
 vad = captioning_utils.get_vad(eos_min_silence=args.eos_min_silence)
-asr_model = captioning_utils.load_asr_model(args.model, captioning_utils.SAMPLING_RATE,
-                                            args.show_word_confidence_scores)
+asr_model = captioning_utils.load_asr_model(model_name=args.model, 
+                                            language=args.language,
+                                            sampling_rate=captioning_utils.SAMPLING_RATE, 
+                                            show_word_confidence_scores=args.show_word_confidence_scores)
+
 audio_queue = queue.Queue(maxsize=1000)  
 stop_threads = threading.Event()  # Event to signal threads to stop
 transcription_handler = captioning_utils.TranscriptionWorker(sampling_rate=captioning_utils.SAMPLING_RATE)

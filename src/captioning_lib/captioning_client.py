@@ -24,7 +24,6 @@ parser.add_argument(
     "-i",
     "--audio_input_device_index",
     type=int,
-    default=1,
     help="Index of the audio input device to use (default is 1).",
 )
 parser.add_argument(
