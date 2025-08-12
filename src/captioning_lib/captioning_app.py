@@ -170,16 +170,41 @@ def main():
         caption_printer = evaluation_utils.EvaluationPrinter()
     else:
         if args.rich_captions:
-            caption_printer = printers.RichCaptionPrinter()
+            caption_printer = printers.RichCaptionPrinter(verbose=args.verbose)
         else:
-            caption_printer = printers.PlainCaptionPrinter()
+            caption_printer = printers.PlainCaptionPrinter(verbose=args.verbose)
 
     
     vad = captioning_utils.get_vad(eos_min_silence=args.eos_min_silence)    
+    # Set output_streaming based on recent_chunk_mode setting
+    # When retranscribing, disable streaming to avoid repeated word-by-word display
+    recent_chunk_mode = args.recent_chunk_mode
+    output_streaming = recent_chunk_mode
+    
     asr_model = captioning_utils.load_asr_model(model_name=args.model, 
                                                 language=args.language,
                                                 sampling_rate=captioning_utils.SAMPLING_RATE, 
-                                                show_word_confidence_scores=args.show_word_confidence_scores)
+                                                show_word_confidence_scores=args.show_word_confidence_scores,
+                                                model_path=args.model_path,
+                                                output_streaming=output_streaming)
+    
+    # Print transcription mode information
+    mode = "Recent-chunk mode" if recent_chunk_mode else "Retranscribe mode"
+    streaming_info = ""
+    if hasattr(asr_model, 'output_streaming') and asr_model.output_streaming:
+        if args.model.startswith(('fasterwhisper', 'whisperonnx')):
+            streaming_info = " (token streaming enabled)"
+    elif not recent_chunk_mode:
+        streaming_info = " (token streaming disabled to avoid repetition)"
+    
+    print(f"Transcription mode: {mode}{streaming_info}")
+    print(f"Partial duration: {args.min_partial_duration}s")
+    
+    # Warning for suboptimal configuration
+    if recent_chunk_mode and args.min_partial_duration < 2.0:
+        print(f"⚠️  WARNING: Recent-chunk mode with short partial duration ({args.min_partial_duration}s < 2.0s) may reduce transcription quality.")
+        print("   Consider using retranscribe mode (default) for short durations or increase --min_partial_duration.")
+    
     audio_queue = queue.Queue(maxsize=1000)
 
     # Start transcription thread
@@ -192,7 +217,8 @@ def main():
                                            'caption_printer': caption_printer,
                                            'stop_threads': stop_threads,
                                            'min_partial_duration': args.min_partial_duration,
-                                           'max_segment_duration': args.max_segment_duration})
+                                           'max_segment_duration': args.max_segment_duration,
+                                           'recent_chunk_mode': args.recent_chunk_mode})
     transcriber.daemon = True
     transcriber.start()
 

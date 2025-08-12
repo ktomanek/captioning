@@ -3,6 +3,7 @@
 Supported ASR models:
 
 * [FasterWhisper](https://github.com/SYSTRAN/faster-whisper)
+* [Whisper ONNX](https://huggingface.co/docs/transformers/serialization#onnx) - Custom Whisper models exported to ONNX format (requires 3 files: encoder_model.onnx, decoder_model.onnx, decoder_with_past_model.onnx)
 * [Moonshine ONNX](https://github.com/usefulsensors/moonshine)
 * [NVidia Nemo FastConformer](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/intro.html)
 
@@ -135,6 +136,43 @@ Hardware tested
 * In general, Moonshine models significantly faster than tested Nemo models with much lower memory footprint (due to ONNX opt and smaller parameter size), but have higher WER (see HF leaderboard)
 
 
+# Good Settings depending on hardware
+
+## Different Modes for Partial Transcriptions
+
+The system supports two modes for partial transcriptions:
+
+### Default Mode (Retranscribes all audio chunks in buffer)
+Retranscribes all accumulated audio for each partial. Provides better quality and context for transcription, especially with short partial durations.
+
+```bash
+python captioning_app.py --model whisperonnx --model_path /path/to/models/ --min_partial_duration 0.5
+```
+- **Strategy**: Frequent updates with full retranscription of partial (default)
+- **Benefits**: Best quality, very responsive
+- **Trade-off**: Higher CPU/GPU usage (acceptable on fast hardware), increasing computational cost as partials grow
+
+--> recommended on faster hardware
+
+### Recent-chunk Mode (`--recent_chunk_mode`, only transcribes audio chunk since last partial transcription)  
+Transcribes only the most recent audio chunk for partials, then retranscribes the entire segment for final results. More efficient for longer partial durations but requires sufficient context per chunk. Enables token-by-token streaming output for supported transcribers (whisperonnx, to some extend fasterwhisper).
+
+```bash
+python captioning_app.py --model whisperonnx --model_path /path/to/models/ --min_partial_duration 2.0 --recent_chunk_mode
+```
+- **Strategy**: Recent-chunk mode with longer duration
+- **Benefits**: Reduces expensive encoding overhead while maintaining token streaming
+- **Performance**: Consistent computational cost per chunk
+
+--> good strategy on slowe hardware, like a weak CPU, on a Raspberry Pi etc
+
+### General Guidelines
+
+- **Default behavior**: Retranscribe mode with short partials (good quality, more computation)
+- **For efficiency**: Use `--recent_chunk_mode` with longer durations (> 2s)
+- **Token streaming**: Real-time word-by-word output is enabled with `--recent_chunk_mode` for models supporting autoregressive decoding (fasterwhisper, whisperonnx)
+- **Resource constraints**: Use `--recent_chunk_mode` with higher `--min_partial_duration` to reduce computational load
+
 # Translations
 
 the ```TranscriptionTranscriber``` can transcribe from a given source language to English. It uses a tiny Whisper model for partial transcriptions and a large Whisper model running on Modal for the final translations. 
@@ -144,3 +182,7 @@ When running with the ```captioning_server.py``` there is a specific translation
 Since Whisper (esp tiny) doesn't work very well on non-EN, it is recommended to increase the transcription buffer (by setting --min_partial_duration):
 
 ```python captioning_server.py -m translation_from_de  --min_partial_duration 0.5```
+
+# TODO
+
+- [ ] Add conversion script for exporting Whisper models to ONNX format with the required 3-file structure (encoder_model.onnx, decoder_model.onnx, decoder_with_past_model.onnx)

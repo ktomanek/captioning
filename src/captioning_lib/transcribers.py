@@ -11,7 +11,7 @@ DEFAULT_LANGUAGE = 'en'
 
 class Transcriber():
 
-    def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE):
+    def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE, output_streaming=True):
         self.number_of_partials_transcribed = 0
         self.speech_segments_transcribed = 0
         self.speech_frames_transcribed = 0
@@ -21,6 +21,7 @@ class Transcriber():
         self.sampling_rate = sampling_rate
         self.model_name = model_name_or_path
         self.show_word_confidence_scores = show_word_confidence_scores
+        self.output_streaming = output_streaming
 
         self.language = language
         print(f"Setting model language to: {self.language}")
@@ -114,17 +115,30 @@ class FasterWhisperTranscriber(Transcriber):
             word_timestamps=use_word_probabilities,
         )
         
-        for segment in segments:
-            if use_word_probabilities:
-                segment_text = ''
-                for word in segment.words:
-                    segment_text += word.word + '/' + str(word.probability) + ' '
-                segment_text = segment_text.strip()
-                if segment_text:
-                    yield segment_text
-            else:
-                if segment.text.strip():
-                    yield segment.text.strip()
+        if self.output_streaming:
+            # Stream segments one by one
+            for segment in segments:
+                if use_word_probabilities:
+                    segment_text = ''
+                    for word in segment.words:
+                        segment_text += word.word + '/' + str(word.probability) + ' '
+                    segment_text = segment_text.strip()
+                    if segment_text:
+                        yield segment_text
+                else:
+                    if segment.text.strip():
+                        yield segment.text.strip()
+        else:
+            # Accumulate all segments and yield as one result
+            complete_text = ""
+            for segment in segments:
+                if use_word_probabilities:
+                    for word in segment.words:
+                        complete_text += word.word + '/' + str(word.probability) + ' '
+                else:
+                    complete_text += segment.text + ' '
+            if complete_text.strip():
+                yield complete_text.strip()
 
 class VoskTranscriber(Transcriber):
     AVAILABLE_MODELS = {'vosk_tiny': 'tiny'}
@@ -306,6 +320,227 @@ class MoonshineTranscriber(Transcriber):
         text = self.tokenizer.decode_batch(tokens)[0]
         if text and text.strip():
             yield text.strip()
+
+class CustomWhisperONNXTranscriber(Transcriber):
+    """Custom Whisper ONNX transcriber that uses user-provided ONNX model files."""
+    AVAILABLE_MODELS = {'whisperonnx': 'custom'}
+
+    # TODO
+    BASE_MODEL_NAME = "openai/whisper-tiny"  # Constant for tokenizer
+
+    def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE, model_path=None, output_streaming=True):
+        self.model_path = model_path
+        if not model_path:
+            raise ValueError("model_path is required for CustomWhisperONNXTranscriber")
+        super().__init__(model_name_or_path, sampling_rate, show_word_confidence_scores, language, output_streaming)
+
+    def _load_model(self, model_name_or_path):
+        if self.language != DEFAULT_LANGUAGE:
+            raise ValueError(f"Language {self.language} is not supported by CustomWhisperONNXTranscriber yet.")
+
+        try:
+            import onnxruntime as ort
+            from transformers import WhisperProcessor
+        except ImportError as e:
+            raise ImportError(f"Required libraries not installed: {e}. Please install: pip install onnxruntime transformers")
+
+        # Construct model file paths
+        encoder_path = os.path.join(self.model_path, "encoder_model.onnx")
+        decoder_path = os.path.join(self.model_path, "decoder_model.onnx")
+        decoder_with_past_path = os.path.join(self.model_path, "decoder_with_past_model.onnx")
+
+        # Verify files exist
+        for path in [encoder_path, decoder_path, decoder_with_past_path]:
+            if not os.path.exists(path):
+                raise FileNotFoundError(f"Required ONNX model file not found: {path}")
+
+        # Optimize for CPU
+        sess_options = ort.SessionOptions()
+        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        sess_options.inter_op_num_threads = 0  # Use all available cores
+        sess_options.intra_op_num_threads = 0
+
+        # Load ONNX sessions
+        print(f"Loading ONNX models from: {self.model_path}")
+        print(f"  - Encoder: {os.path.basename(encoder_path)}")
+        print(f"  - Decoder: {os.path.basename(decoder_path)}")  
+        print(f"  - Decoder with past: {os.path.basename(decoder_with_past_path)}")
+        self.encoder_session = ort.InferenceSession(encoder_path, sess_options=sess_options)
+        self.decoder_session = ort.InferenceSession(decoder_path, sess_options=sess_options)
+        self.decoder_with_past_session = ort.InferenceSession(decoder_with_past_path, sess_options=sess_options)
+
+        # Detect model size from encoder dimensions
+        self.detected_model_size = self._detect_model_size()
+        
+        # Load processor for audio preprocessing and tokenizer
+        # Use detected model size for appropriate tokenizer
+        base_model_name = f"openai/whisper-{self.detected_model_size}"
+        self.processor = WhisperProcessor.from_pretrained(base_model_name)
+        self.tokenizer = self.processor.tokenizer
+        print(f"Using processor: {base_model_name}")
+
+        # Special tokens
+        self.sot_token = self.tokenizer.convert_tokens_to_ids("<|startoftranscript|>")
+        self.eot_token = self.tokenizer.convert_tokens_to_ids("<|endoftext|>")
+        self.no_timestamps_token = self.tokenizer.convert_tokens_to_ids("<|notimestamps|>")
+        self.transcribe_token = self.tokenizer.convert_tokens_to_ids("<|transcribe|>")
+        self.english_token = self.tokenizer.convert_tokens_to_ids("<|en|>")
+
+        # Get input/output names
+        self.decoder_outputs = [out.name for out in self.decoder_session.get_outputs()]
+        self.decoder_with_past_outputs = [out.name for out in self.decoder_with_past_session.get_outputs()]
+
+        logging.info(f"Loaded CustomWhisperONNX model from: {self.model_path}")
+        logging.info(f"Detected model size: {self.detected_model_size}")
+
+    def _detect_model_size(self):
+        """Detect Whisper model size from encoder output dimensions"""
+        # Get encoder output shape - typically [batch_size, seq_len, hidden_dim]
+        encoder_outputs = self.encoder_session.get_outputs()
+        
+        # Get hidden dimension from the first output
+        output_shape = encoder_outputs[0].shape
+        hidden_dim = output_shape[-1]  # Last dimension is hidden size
+        
+        # Map hidden dimensions to model sizes
+        size_map = {
+            384: "tiny",
+            512: "base", 
+            768: "small",
+            1024: "medium",
+            1280: "large-v3"  # Also covers large-v2, large, and large-v3-turbo
+        }
+        
+        detected_size = size_map.get(hidden_dim)
+        if detected_size:
+            logging.info(f"Detected model size from hidden dimension {hidden_dim}: {detected_size}")
+            return detected_size
+        else:
+            raise ValueError(f"Unknown hidden dimension {hidden_dim}. Supported dimensions: {list(size_map.keys())}")
+
+    def _preprocess_audio(self, audio_data):
+        """Preprocess audio data for ONNX model"""
+        # Ensure audio is float32 and normalized
+        if audio_data.dtype != np.float32:
+            audio_data = audio_data.astype(np.float32)
+        
+        # Whisper expects 30-second chunks, pad if necessary
+        expected_length = 30 * self.sampling_rate  # 30 seconds * 16000 = 480000 samples
+        if len(audio_data) < expected_length:
+            # Pad with zeros
+            padding = expected_length - len(audio_data)
+            audio_data = np.pad(audio_data, (0, padding), mode='constant')
+        elif len(audio_data) > expected_length:
+            # Truncate to 30 seconds
+            audio_data = audio_data[:expected_length]
+
+        # Use processor to create input features
+        inputs = self.processor(
+            audio_data,
+            sampling_rate=self.sampling_rate,
+            return_tensors="np"
+        )
+        return inputs.input_features
+
+    def _encode_audio(self, input_features):
+        """Encode audio features using ONNX encoder"""
+        encoder_outputs = self.encoder_session.run(
+            None,
+            {"input_features": input_features}
+        )
+        return encoder_outputs[0]  # encoder hidden states
+
+    def _transcribe(self, audio_data, segment_end):
+        """Perform transcription using ONNX models"""
+        try:
+            # Preprocess audio
+            input_features = self._preprocess_audio(audio_data)
+            
+            # Encode audio
+            encoder_hidden_states = self._encode_audio(input_features)
+            
+            if self.output_streaming:
+                # Stream decode tokens one by one
+                yield from self._decode_streaming(encoder_hidden_states, max_length=448)
+            else:
+                # Accumulate all tokens and yield complete result
+                complete_text = ""
+                for token in self._decode_streaming(encoder_hidden_states, max_length=448):
+                    complete_text += token
+                if complete_text.strip():
+                    yield complete_text.strip()
+            
+        except Exception as e:
+            logging.error(f"ONNX transcription error: {e}")
+            yield f"[Error: {str(e)}]"
+
+    def _decode_streaming(self, encoder_hidden_states, max_length=448):
+        """Streaming decoding with ONNX models"""
+        # Initialize decoder input with start tokens
+        decoder_input_ids = np.array([
+            [self.sot_token, self.english_token, self.transcribe_token, self.no_timestamps_token]
+        ], dtype=np.int64)
+        
+        past_key_values_dict = {}
+        
+        for i in range(max_length):
+            if not past_key_values_dict:
+                # First iteration - use full decoder
+                inputs = {
+                    "input_ids": decoder_input_ids,
+                    "encoder_hidden_states": encoder_hidden_states
+                }
+                
+                outputs = self.decoder_session.run(None, inputs)
+                logits = outputs[0]
+                
+                # Store past key values
+                for idx, output_name in enumerate(self.decoder_outputs[1:], 1):
+                    if "present" in output_name:
+                        past_name = output_name.replace("present.", "past_key_values.")
+                        past_key_values_dict[past_name] = outputs[idx]
+            else:
+                # Subsequent iterations - use decoder with past
+                current_input_ids = decoder_input_ids[:, -1:].astype(np.int64)
+                
+                inputs = {"input_ids": current_input_ids}
+                inputs.update(past_key_values_dict)
+                
+                outputs = self.decoder_with_past_session.run(None, inputs)
+                logits = outputs[0]
+                
+                # Update past key values
+                for idx, output_name in enumerate(self.decoder_with_past_outputs[1:], 1):
+                    if "present" in output_name:
+                        past_name = output_name.replace("present.", "past_key_values.")
+                        past_key_values_dict[past_name] = outputs[idx]
+            
+            # Get next token (greedy decoding)
+            next_token_logits = logits[0, -1, :]
+            next_token_id = np.argmax(next_token_logits)
+            
+            # Check for end of transcript
+            if next_token_id == self.eot_token:
+                break
+            
+            # Add to sequence
+            decoder_input_ids = np.concatenate([
+                decoder_input_ids, 
+                np.array([[next_token_id]], dtype=np.int64)
+            ], axis=1)
+            
+            # Decode token to text for streaming output
+            token_text = self.tokenizer.decode([next_token_id], skip_special_tokens=True)
+            if token_text.strip():  # Only yield non-empty tokens
+                if self.show_word_confidence_scores:
+                    # Calculate confidence if requested
+                    exp_logits = np.exp(next_token_logits - np.max(next_token_logits))
+                    token_probs = exp_logits / np.sum(exp_logits)
+                    confidence = token_probs[next_token_id]
+                    yield f"{token_text}/{confidence:.2f}"
+                else:
+                    yield token_text
+
 
 class RemoteGPUTranscriber(Transcriber):
     """Runs a model on GPU via Modal functions.

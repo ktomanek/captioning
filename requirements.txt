@@ -6,6 +6,7 @@ silero_vad
 soundfile
 jiwer
 transformers
+onnxruntime
 flask
 flask_socketio
 python-socketio[client]

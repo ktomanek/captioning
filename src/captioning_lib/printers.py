@@ -2,10 +2,17 @@
 import os
 import shutil
 import sys
+import time
 
+# Default delay for verbose streaming output - mostly to simulate real-time streaming on slow devices.
+# Set to 0.0 for no delay.
+VERBOSE_STREAMING_DELAY = 0.0
 
 class CaptionPrinter:
     """Base class for caption printers."""
+
+    def __init__(self, verbose=False):
+        self.verbose = verbose
 
     def start(self):
         pass
@@ -13,7 +20,18 @@ class CaptionPrinter:
     def stop(self):
         pass
 
-    def print(self, transcript, duration=None, partial=False):
+    def print(self, transcript, duration=None, partial=False, is_recent_chunk_mode=False, recent_chunk_duration=None):
+        """Print transcription result with optional verbose information.
+        
+        Args:
+            transcript (str): The transcribed text
+            duration (float): Total duration of accumulated audio in buffer (seconds)
+            partial (bool): Whether this is a partial (True) or final segment (False)
+            is_recent_chunk_mode (bool): Whether this partial used recent-chunk mode instead of 
+                                       retranscribing all accumulated audio (only relevant for partials)
+            recent_chunk_duration (float): Duration of just the recent chunk that was transcribed 
+                                         in recent-chunk mode (seconds, only relevant when is_recent_chunk_mode=True)
+        """
         raise NotImplementedError("This method should be overridden by subclasses.")
 
 class PlainCaptionPrinter(CaptionPrinter):
@@ -23,19 +41,27 @@ class PlainCaptionPrinter(CaptionPrinter):
     def stop(self):
         print("-----------------------------------------------------------------------------")
 
-    def print(self, transcript, duration=None, partial=False):
+    def print(self, transcript, duration=None, partial=False, is_recent_chunk_mode=False, recent_chunk_duration=None):
         """Update the caption display with the latest transcription"""
         if partial:
-            print(f"\rPARTIAL: {transcript}", flush=True, end='')
+            if self.verbose and is_recent_chunk_mode and recent_chunk_duration:
+                print(f"\rPARTIAL (recent-chunk, {recent_chunk_duration:.1f}s chunk/{duration:.1f}s total): {transcript}", flush=True, end='')
+                time.sleep(VERBOSE_STREAMING_DELAY)
+            elif self.verbose and duration:
+                print(f"\rPARTIAL (retranscribe, {duration:.1f}s total): {transcript}", flush=True, end='')
+                time.sleep(VERBOSE_STREAMING_DELAY)
+            else:
+                print(f"\rPARTIAL: {transcript}", flush=True, end='')
         else:
-            if duration:
-                print(f"\rSEGMENT, {duration:.2f} sec: {transcript}")
+            if self.verbose and duration:
+                print(f"\rSEGMENT ({duration:.1f}s total): {transcript}")
             else:
                 print(f"\rSEGMENT: {transcript}")
 
 class RichCaptionPrinter(CaptionPrinter):
 
-    def __init__(self):
+    def __init__(self, verbose=False):
+        super().__init__(verbose)
         # https://rich.readthedocs.io/en/stable/style.html
         from rich.console import Console
         from rich.theme import Theme
@@ -86,7 +112,7 @@ class RichCaptionPrinter(CaptionPrinter):
 
         return transcript
 
-    def print(self, transcript, duration=None, partial=False):
+    def print(self, transcript, duration=None, partial=False, is_recent_chunk_mode=False, recent_chunk_duration=None):
         """Update the caption display with the latest transcription"""
         # Move to the beginning of the line and clear it
         sys.stdout.write("\r\033[K")  
@@ -96,10 +122,19 @@ class RichCaptionPrinter(CaptionPrinter):
         if '/' in transcript:
             transcript = self._maybe_colorize_transcript_with_probabilities(transcript, add_probabilities=False)
 
-        if duration:
-            text = f"{transcript} ({duration:.2f} sec)"
+        # Build text with verbose information if enabled
+        if partial:
+            if self.verbose and is_recent_chunk_mode and recent_chunk_duration:
+                text = f"PARTIAL (recent-chunk, {recent_chunk_duration:.1f}s chunk/{duration:.1f}s total): {transcript}"
+            elif self.verbose and duration:
+                text = f"PARTIAL (retranscribe, {duration:.1f}s total): {transcript}"
+            else:
+                text = transcript
         else:
-            text = transcript
+            if self.verbose and duration:
+                text = f"SEGMENT ({duration:.1f}s total): {transcript}"
+            else:
+                text = transcript
 
         # Show partial and full segments differently
         if partial:
@@ -110,6 +145,9 @@ class RichCaptionPrinter(CaptionPrinter):
                 text = '...' + text[-last_chars:]
             syle = "partial"
             self.console.print(text, end="", style=syle)   # Print the styled text without adding a new line
+            # Add delay for verbose mode partials to visualize streaming
+            if self.verbose:
+                time.sleep(VERBOSE_STREAMING_DELAY)
         else:
             syle = "segment"
             self.console.print(text, style=syle) # Print the styled text without adding a new line

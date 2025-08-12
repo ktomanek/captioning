@@ -39,11 +39,13 @@ def get_args():
 class RemotePrinter(printers.CaptionPrinter):
     """Printer that sends transcriptions via websocket to a remote client."""
 
-    def print(self, transcript, duration=None, partial=False):
+    def print(self, transcript, duration=None, partial=False, is_recent_chunk_mode=False, recent_chunk_duration=None):
         socketio.emit('transcription', {
             'transcript': transcript,
             'partial': partial,
-            'duration': duration
+            'duration': duration,
+            'is_recent_chunk_mode': is_recent_chunk_mode,
+            'recent_chunk_duration': recent_chunk_duration
         })   
         logging.debug(f"Transcription sent: {transcript}, Partial: {partial}, Duration: {duration}")
 
@@ -55,12 +57,36 @@ client_connected = False  # Flag to track if a client is already connected
 
 args = get_args()
 
-remote_caption_printer = RemotePrinter()
+remote_caption_printer = RemotePrinter(verbose=args.verbose)
 vad = captioning_utils.get_vad(eos_min_silence=args.eos_min_silence)
+# Set output_streaming based on recent_chunk_mode setting
+# When retranscribing, disable streaming to avoid repeated word-by-word display
+recent_chunk_mode = args.recent_chunk_mode
+output_streaming = recent_chunk_mode
+
 asr_model = captioning_utils.load_asr_model(model_name=args.model, 
                                             language=args.language,
                                             sampling_rate=captioning_utils.SAMPLING_RATE, 
-                                            show_word_confidence_scores=args.show_word_confidence_scores)
+                                            show_word_confidence_scores=args.show_word_confidence_scores,
+                                            model_path=args.model_path,
+                                            output_streaming=output_streaming)
+
+# Print transcription mode information
+mode = "Recent-chunk mode" if recent_chunk_mode else "Retranscribe mode"
+streaming_info = ""
+if hasattr(asr_model, 'output_streaming') and asr_model.output_streaming:
+    if args.model.startswith(('fasterwhisper', 'whisperonnx')):
+        streaming_info = " (token streaming enabled)"
+elif not recent_chunk_mode:
+    streaming_info = " (token streaming disabled to avoid repetition)"
+
+print(f"Transcription mode: {mode}{streaming_info}")
+print(f"Partial duration: {args.min_partial_duration}s")
+
+# Warning for suboptimal configuration
+if recent_chunk_mode and args.min_partial_duration < 2.0:
+    print(f"⚠️  WARNING: Recent-chunk mode with short partial duration ({args.min_partial_duration}s < 2.0s) may reduce transcription quality.")
+    print("   Consider using retranscribe mode (default) for short durations or increase --min_partial_duration.")
 
 audio_queue = queue.Queue(maxsize=1000)  
 stop_threads = threading.Event()  # Event to signal threads to stop
@@ -72,7 +98,8 @@ transcriber = threading.Thread(target=transcription_handler.transcription_worker
                                         'caption_printer': remote_caption_printer,
                                         'stop_threads': stop_threads,
                                         'min_partial_duration': args.min_partial_duration,
-                                        'max_segment_duration': args.max_segment_duration
+                                        'max_segment_duration': args.max_segment_duration,
+                                        'recent_chunk_mode': args.recent_chunk_mode
                                         })
 transcriber.daemon = True
 transcriber.start()
