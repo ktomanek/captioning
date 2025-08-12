@@ -25,7 +25,7 @@ def get_argument_parser():
         list(transcribers.RemoteGPUTranscriber.AVAILABLE_MODELS.keys()) + 
         list(transcribers.TranslationTranscriber.AVAILABLE_MODELS.keys()) +
         list(transcribers.VoskTranscriber.AVAILABLE_MODELS.keys()) +
-        list(transcribers.CustomWhisperONNXTranscriber.AVAILABLE_MODELS.keys()),
+        list(transcribers.ONNXWhisperTranscriber.AVAILABLE_MODELS.keys()),
         help="ASR model to use.",
     )
     parser.add_argument(
@@ -135,7 +135,7 @@ def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_
     elif model_name.startswith('vosk'):
         asr_model = transcribers.VoskTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming)
     elif model_name.startswith('whisperonnx'):
-        asr_model = transcribers.CustomWhisperONNXTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, model_path=model_path, output_streaming=output_streaming)
+        asr_model = transcribers.ONNXWhisperTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, model_path=model_path, output_streaming=output_streaming)
     else:
         raise ValueError(f"Unknown model type: {model_name}")
 

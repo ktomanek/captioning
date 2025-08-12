@@ -2,7 +2,7 @@
 import argparse
 from captioning_lib import evaluation_utils
 import jiwer
-from transcribers import WhisperTranscriber, NemoTranscriber, MoonshineTranscriber, VoskTranscriber
+from transcribers import FasterWhisperTranscriber, NemoTranscriber, MoonshineTranscriber, VoskTranscriber, ONNXWhisperTranscriber
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 transcript_normalizer = BasicTextNormalizer()
 
@@ -17,22 +17,25 @@ def get_wer(reference_text: str, transcript_text: str, normalized: bool = True) 
     wer = jiwer.wer(reference_text, transcript_text)
     return wer
 
-def get_transcriber(model_name, sampling_rate):
+def get_transcriber(model_name, sampling_rate, model_path=None):
     """Get the appropriate transcriber based on model name"""
-    if model_name in WhisperTranscriber.AVAILABLE_MODELS:
-        return WhisperTranscriber(model_name, sampling_rate)
+    if model_name in FasterWhisperTranscriber.AVAILABLE_MODELS:
+        return FasterWhisperTranscriber(model_name, sampling_rate)
     elif model_name in NemoTranscriber.AVAILABLE_MODELS:
         return NemoTranscriber(model_name, sampling_rate)
     elif model_name in MoonshineTranscriber.AVAILABLE_MODELS:
         return MoonshineTranscriber(model_name, sampling_rate)
     elif model_name in VoskTranscriber.AVAILABLE_MODELS:
         return VoskTranscriber(model_name, sampling_rate)
+    elif model_name in ONNXWhisperTranscriber.AVAILABLE_MODELS:
+        return ONNXWhisperTranscriber(model_name, sampling_rate, model_path=model_path)
 
     else:
-        available_models = list(WhisperTranscriber.AVAILABLE_MODELS.keys()) + \
+        available_models = list(FasterWhisperTranscriber.AVAILABLE_MODELS.keys()) + \
                           list(NemoTranscriber.AVAILABLE_MODELS.keys()) + \
                           list(MoonshineTranscriber.AVAILABLE_MODELS.keys()) + \
-                          list(VoskTranscriber.AVAILABLE_MODELS.keys())
+                          list(VoskTranscriber.AVAILABLE_MODELS.keys()) + \
+                          list(ONNXWhisperTranscriber.AVAILABLE_MODELS.keys())
         raise ValueError(f"Unknown model: {model_name}. Available models: {', '.join(available_models)}")
 
 def main():
@@ -40,6 +43,7 @@ def main():
     parser.add_argument('--audio_file', required=True, help='Path to the WAV file to transcribe')
     parser.add_argument('--reference_file', help='Path to the reference transcript file for evaluation')
     parser.add_argument('--model', required=True, help='Model to use for transcription')
+    parser.add_argument('--model_path', help='Path to custom ONNX model files (required for whisperonnx model)')
     args = parser.parse_args()
     
    
@@ -57,10 +61,12 @@ def main():
 
     # Initialize the transcriber
     print(f"Initializing transcriber with model: {args.model}")
-    transcriber = get_transcriber(args.model, sampling_rate)
+    transcriber = get_transcriber(args.model, sampling_rate, args.model_path)
     
     # Transcribe the entire audio file as a single segment
-    transcript = transcriber.transcribe(audio_data, segment_end=True)
+    transcript_generator = transcriber.transcribe(audio_data, segment_end=True)
+    # Collect all yielded results into a single transcript
+    transcript = "".join(transcript_generator)
     
     print("\n" + "="*80)
     print("TRANSCRIPTION RESULT:")

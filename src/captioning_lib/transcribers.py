@@ -70,7 +70,7 @@ class Transcriber():
     
     def get_stats(self):
         speech_time_transcribes = self.speech_frames_transcribed / self.sampling_rate
-        rtfx = speech_time_transcribes / self.compute_time
+        rtfx = speech_time_transcribes / self.compute_time if self.compute_time > 0 else 0.0
         print(f"Model uses {self.memory_used / (1024 * 1024):.2f} MB of RAM")
         print(f"Number of inference calls total: {self.speech_segments_transcribed + self.number_of_partials_transcribed}")
         print(f"Number of partial segments transcribed: {self.number_of_partials_transcribed}")
@@ -321,9 +321,9 @@ class MoonshineTranscriber(Transcriber):
         if text and text.strip():
             yield text.strip()
 
-class CustomWhisperONNXTranscriber(Transcriber):
-    """Custom Whisper ONNX transcriber that uses user-provided ONNX model files."""
-    AVAILABLE_MODELS = {'whisperonnx': 'custom'}
+class ONNXWhisperTranscriber(Transcriber):
+    """ONNX Whisper transcriber that uses user-provided ONNX model files."""
+    AVAILABLE_MODELS = {'whisperonnx': None}
 
     # TODO
     BASE_MODEL_NAME = "openai/whisper-tiny"  # Constant for tokenizer
@@ -331,12 +331,12 @@ class CustomWhisperONNXTranscriber(Transcriber):
     def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE, model_path=None, output_streaming=True):
         self.model_path = model_path
         if not model_path:
-            raise ValueError("model_path is required for CustomWhisperONNXTranscriber")
+            raise ValueError("model_path is required for ONNXWhisperTranscriber")
         super().__init__(model_name_or_path, sampling_rate, show_word_confidence_scores, language, output_streaming)
 
     def _load_model(self, model_name_or_path):
         if self.language != DEFAULT_LANGUAGE:
-            raise ValueError(f"Language {self.language} is not supported by CustomWhisperONNXTranscriber yet.")
+            raise ValueError(f"Language {self.language} is not supported by ONNXWhisperTranscriber yet.")
 
         try:
             import onnxruntime as ort
@@ -390,7 +390,7 @@ class CustomWhisperONNXTranscriber(Transcriber):
         self.decoder_outputs = [out.name for out in self.decoder_session.get_outputs()]
         self.decoder_with_past_outputs = [out.name for out in self.decoder_with_past_session.get_outputs()]
 
-        logging.info(f"Loaded CustomWhisperONNX model from: {self.model_path}")
+        logging.info(f"Loaded ONNXWhisper model from: {self.model_path}")
         logging.info(f"Detected model size: {self.detected_model_size}")
 
     def _detect_model_size(self):
