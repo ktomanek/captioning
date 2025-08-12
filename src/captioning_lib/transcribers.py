@@ -79,10 +79,10 @@ class Transcriber():
         print(f"Total inference time: {self.compute_time:.2f} sec")
         print(f"Inverse real-time factor (RTFx): {rtfx:.2f}")
         
-class WhisperTranscriber(Transcriber):
-    AVAILABLE_MODELS = {'whisper_tiny': 'tiny',
-                        'whisper_base': 'base',
-                        'whisper_small': 'small'}
+class FasterWhisperTranscriber(Transcriber):
+    AVAILABLE_MODELS = {'fasterwhisper_tiny': 'tiny',
+                        'fasterwhisper_base': 'base',
+                        'fasterwhisper_small': 'small'}
     
     def _load_model(self, model_name):
         if model_name not in self.AVAILABLE_MODELS.keys():
@@ -93,7 +93,7 @@ class WhisperTranscriber(Transcriber):
         full_model_name = self.AVAILABLE_MODELS[model_name]
         self.model = WhisperModel(full_model_name, device="cpu", compute_type="int8")
 
-        logging.info(f"Loaded Whisper model: {model_name} --> {full_model_name}")
+        logging.info(f"Loaded FasterWhisper model: {model_name} --> {full_model_name}")
 
     def _transcribe(self, audio_data, segment_end):
         # for partial transcriptions, we are using smaller beam size

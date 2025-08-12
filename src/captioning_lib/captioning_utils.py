@@ -19,7 +19,7 @@ def get_argument_parser():
         "--model",
         type=str,
         default="moonshine_onnx_tiny",
-        choices=list(transcribers.WhisperTranscriber.AVAILABLE_MODELS.keys()) + 
+        choices=list(transcribers.FasterWhisperTranscriber.AVAILABLE_MODELS.keys()) + 
         list(transcribers.NemoTranscriber.AVAILABLE_MODELS.keys()) + 
         list(transcribers.MoonshineTranscriber.AVAILABLE_MODELS.keys()) + 
         list(transcribers.RemoteGPUTranscriber.AVAILABLE_MODELS.keys()) + 
@@ -104,8 +104,8 @@ LANGUAGE = 'en'
 
 def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_confidence_scores=False):
     logging.debug("Loading ASR model...")
-    if model_name.startswith('whisper'):
-        asr_model = transcribers.WhisperTranscriber(model_name, sampling_rate, show_word_confidence_scores, language)
+    if model_name.startswith('fasterwhisper'):
+        asr_model = transcribers.FasterWhisperTranscriber(model_name, sampling_rate, show_word_confidence_scores, language)
     elif model_name.startswith('nemo'):
         asr_model = transcribers.NemoTranscriber(model_name, sampling_rate, show_word_confidence_scores, language)
     elif model_name.startswith('moonshine'):
