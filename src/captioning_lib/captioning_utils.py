@@ -192,9 +192,15 @@ class TranscriptionWorker():
                         # finish the segment by processing all so far and then flushing buffer
                         self.is_speech_recording = False
                         self.frames_since_last_speech += len(chunk_np)
-                        text = asr.transcribe(speech_buffer, segment_end=True)
-                        caption_printer.print(text, duration=speech_buffer_duration, partial=False)
-                        self.transcribed_segments.append(text)
+                        
+                        complete_text = ""
+                        for text_chunk in asr.transcribe(speech_buffer, segment_end=True):
+                            if text_chunk:
+                                caption_printer.print(text_chunk, duration=speech_buffer_duration, partial=False)
+                                complete_text += text_chunk + " "
+                        complete_text = complete_text.strip()
+                        if complete_text:
+                            self.transcribed_segments.append(complete_text)
                         speech_buffer = np.empty(0, dtype=np.float32)  
                         time_since_last_transcription = time.time()
                 else:
@@ -203,18 +209,27 @@ class TranscriptionWorker():
                         # force end a segment if it is getting too long even if no EOS detected by VAD
                         if speech_buffer_duration > max_segment_duration:  # e.g., 5 seconds
                             logging.debug(f"Max segment duration reached, ending segment: {speech_buffer_duration:.2f} sec")
-                            text = asr.transcribe(speech_buffer, segment_end=True)
-                            caption_printer.print(text, duration=speech_buffer_duration, partial=False)
-                            self.transcribed_segments.append(text)
+                            
+                            complete_text = ""
+                            for text_chunk in asr.transcribe(speech_buffer, segment_end=True):
+                                if text_chunk:
+                                    caption_printer.print(text_chunk, duration=speech_buffer_duration, partial=False)
+                                    complete_text += text_chunk + " "
+                            
+                            complete_text = complete_text.strip()
+                            if complete_text:
+                                self.transcribed_segments.append(complete_text)
                             speech_buffer = np.empty(0, dtype=np.float32)  
                             time_since_last_transcription = time.time()
 
                         # if we have enough data in the buffer, transcribe a partial
                         elif current_recording_duration > min_partial_duration:
                             logging.debug(f"Transcribing partial segment: {current_recording_duration:.2f} sec")
-                            text = asr.transcribe(speech_buffer, segment_end=False)
-                            d = len(speech_buffer) / self.sampling_rate
-                            caption_printer.print(text, duration=d, partial=True)
+                            
+                            for text_chunk in asr.transcribe(speech_buffer, segment_end=False):
+                                if text_chunk:
+                                    d = len(speech_buffer) / self.sampling_rate
+                                    caption_printer.print(text_chunk, duration=d, partial=True)
                             time_since_last_transcription = time.time()
                     else:
                         empty_frames_to_keep = int(0.1 * self.sampling_rate)
@@ -234,9 +249,16 @@ class TranscriptionWorker():
 
         if len(speech_buffer) > 0:
             logging.debug("Flushing remaining speech buffer...")
-            text = asr.transcribe(speech_buffer, segment_end=True)
-            caption_printer.print(text, duration=len(speech_buffer) / self.sampling_rate, partial=False)
-            self.transcribed_segments.append(text)
+            
+            complete_text = ""
+            for text_chunk in asr.transcribe(speech_buffer, segment_end=True):
+                if text_chunk:
+                    caption_printer.print(text_chunk, duration=len(speech_buffer) / self.sampling_rate, partial=False)
+                    complete_text += text_chunk + " "
+            
+            complete_text = complete_text.strip()
+            if complete_text:
+                self.transcribed_segments.append(complete_text)
             speech_buffer = np.empty(0, dtype=np.float32)
 
 

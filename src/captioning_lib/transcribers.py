@@ -47,15 +47,25 @@ class Transcriber():
         raise NotImplementedError("Subclasses should implement this method to load the model.")
 
     def transcribe(self, audio_data, segment_end):
+        """Generator that yields transcription results as they become available."""
         t1 = time.time()
-        t = self._transcribe(audio_data, segment_end)
+        
+        yielded_any = False
+        for result in self._transcribe(audio_data, segment_end):
+            yielded_any = True
+            yield result
+        
+        # Only update stats after all results have been yielded
         self.compute_time += (time.time() - t1)
         self.speech_frames_transcribed += len(audio_data)
         if segment_end:
             self.speech_segments_transcribed += 1
         else:
             self.number_of_partials_transcribed += 1
-        return t
+        
+        # Handle case where _transcribe yields nothing
+        if not yielded_any:
+            yield ""
     
     def get_stats(self):
         speech_time_transcribes = self.speech_frames_transcribed / self.sampling_rate
@@ -103,14 +113,18 @@ class WhisperTranscriber(Transcriber):
             vad_filter=use_vad_filter,
             word_timestamps=use_word_probabilities,
         )
-        pred = ''
+        
         for segment in segments:
             if use_word_probabilities:
+                segment_text = ''
                 for word in segment.words:
-                    pred += word.word + '/' + str(word.probability) + ' '
+                    segment_text += word.word + '/' + str(word.probability) + ' '
+                segment_text = segment_text.strip()
+                if segment_text:
+                    yield segment_text
             else:
-                pred += segment.text + ' '
-        return pred.strip()
+                if segment.text.strip():
+                    yield segment.text.strip()
 
 class VoskTranscriber(Transcriber):
     AVAILABLE_MODELS = {'vosk_tiny': 'tiny'}
@@ -142,7 +156,9 @@ class VoskTranscriber(Transcriber):
                 t = final_result['text']
                 transcript += ' ' + t
             self.rec.Reset()
-        return transcript
+        
+        if transcript.strip():
+            yield transcript.strip()
 
 class TranslationTranscriber(Transcriber):
     """Model for partial transcripts show the source language, for final segments
@@ -179,6 +195,8 @@ class TranslationTranscriber(Transcriber):
         if segment_end:
             text = self.model_for_segments().transcribe.remote(
                 audio_data, translate_from_source_language=self.source_language)
+            if text and text.strip():
+                yield text.strip()
         else:
             segments, _ = self.model_for_partials.transcribe(
                 audio_data,
@@ -189,12 +207,9 @@ class TranslationTranscriber(Transcriber):
                 vad_filter=True,
                 word_timestamps=False,
             )
-            text = ''
             for segment in segments:
-                    text += segment.text + ' '
-            return text.strip()
-
-        return text.strip() if text else ""
+                if segment.text.strip():
+                    yield segment.text.strip()
 
 class NemoTranscriber(Transcriber):
 
@@ -263,7 +278,9 @@ class NemoTranscriber(Transcriber):
                 verbose=False # don't show progress bar
                 )
 
-        return output[0].text if output else ""
+        result = output[0].text if output else ""
+        if result.strip():
+            yield result.strip()
 
 class MoonshineTranscriber(Transcriber):
     AVAILABLE_MODELS = {'moonshine_onnx_tiny': 'tiny',
@@ -287,7 +304,8 @@ class MoonshineTranscriber(Transcriber):
     def _transcribe(self, audio_data, segment_end):
         tokens = self.model.generate(audio_data[np.newaxis, :].astype(np.float32))
         text = self.tokenizer.decode_batch(tokens)[0]
-        return text.strip() if text else ""
+        if text and text.strip():
+            yield text.strip()
 
 class RemoteGPUTranscriber(Transcriber):
     """Runs a model on GPU via Modal functions.
@@ -339,6 +357,8 @@ class RemoteGPUTranscriber(Transcriber):
         else:
             tokens = self.local_model.generate(audio_data[np.newaxis, :].astype(np.float32))
             text = self.local_tokenizer.decode_batch(tokens)[0]
-        return text.strip() if text else ""
+        
+        if text and text.strip():
+            yield text.strip()
 
 
