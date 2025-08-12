@@ -188,6 +188,7 @@ class TranscriptionWorker():
                         self.is_speech_recording = True
                         self.had_speech = True
                         self.frames_since_last_speech = 0
+                        time_since_last_transcription = time.time()  # Reset timer when speech starts
                     elif "end" in vad_event:
                         # finish the segment by processing all so far and then flushing buffer
                         self.is_speech_recording = False
