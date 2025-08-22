@@ -17,7 +17,7 @@ def get_wer(reference_text: str, transcript_text: str, normalized: bool = True) 
     wer = jiwer.wer(reference_text, transcript_text)
     return wer
 
-def get_transcriber(model_name, sampling_rate, model_path=None):
+def get_transcriber(model_name, sampling_rate, model_path=None, use_raspberry_pi_session_config=True):
     """Get the appropriate transcriber based on model name"""
     if model_name in FasterWhisperTranscriber.AVAILABLE_MODELS:
         return FasterWhisperTranscriber(model_name, sampling_rate)
@@ -28,7 +28,7 @@ def get_transcriber(model_name, sampling_rate, model_path=None):
     elif model_name in VoskTranscriber.AVAILABLE_MODELS:
         return VoskTranscriber(model_name, sampling_rate)
     elif model_name in ONNXWhisperTranscriber.AVAILABLE_MODELS:
-        return ONNXWhisperTranscriber(model_name, sampling_rate, model_path=model_path)
+        return ONNXWhisperTranscriber(model_name, sampling_rate, model_path=model_path, use_raspberry_pi_session_config=use_raspberry_pi_session_config)
 
     else:
         available_models = list(FasterWhisperTranscriber.AVAILABLE_MODELS.keys()) + \
@@ -44,6 +44,7 @@ def main():
     parser.add_argument('--reference_file', help='Path to the reference transcript file for evaluation')
     parser.add_argument('--model', required=True, help='Model to use for transcription')
     parser.add_argument('--model_path', help='Path to custom ONNX model files (required for whisperonnx model)')
+    parser.add_argument('--use_raspberry_pi_session_config', action='store_true', default=True, help='Use Raspberry Pi optimized session configuration for ONNX models')
     args = parser.parse_args()
     
    
@@ -61,7 +62,7 @@ def main():
 
     # Initialize the transcriber
     print(f"Initializing transcriber with model: {args.model}")
-    transcriber = get_transcriber(args.model, sampling_rate, args.model_path)
+    transcriber = get_transcriber(args.model, sampling_rate, args.model_path, args.use_raspberry_pi_session_config)
     
     # Transcribe the entire audio file as a single segment
     transcript_generator = transcriber.transcribe(audio_data, segment_end=True)

@@ -81,7 +81,7 @@ Currently the server does not handle concurrent connections.
 * WER is calculated after normalization (no punctuation and casing)
 * for all experiments, the following settings were used:
   * streaming: ```python captioning_app.py --eval --audio_file=../samples/jfk_space.wav --reference_file=../samples/jfk_space.txt --eos_min_silence=100 --rtf=0.0 --max_segment_duration=10 --model XXXX```
-  * non-streaming: ```python transcription_app.py --audio_file=../samples/jfk_space.wav --reference_file=../samples/jfk_space.txt  --model XXXX```  
+  * non-streaming: ```python transcription_app.py --audio_file=../samples/jfk_asknot.wav --reference_file=../samples/jfk_asknot.txt  --model XXXX```  
 
 
 ## Notes
@@ -118,21 +118,22 @@ Hardware tested
 
 |                         | mem | WER         || RTF Mac M2  || RTF MiniPC  || RTF Rasp ||
 | --                      | -- |  -- | --    |  --   | --  |    -- | --  |    -- | --|
-| model                   | -  | stream   | offl  |  stream| offl  |   stream| offl    |     stream|   offl |
-| moonshine-onnx-tiny     | ~550 MB | 0.23 | 0.38 | 65.2 | 50.6 | 20.9 | 11.6 | 15.1 | 6.3 | 
-| moonshine-onnx-base     | ~970 MB | 0.16 | -- | 32.9 | 16.1 | 12.6 | 5.1 | 7.8  | 1.9 | 
-| fasterwhisper-tiny      | ~230 MB | 0.25 | 0.09 | 6.0  | 34.7 | 2.6  | 22.1 | 1.1  | 7.1 |
-| fasterwhisper-base      | ~320 MB | 0.11 | 0.08 | 4.0  | 17.2 | 1.8  | 14.1 | 0.8  | 3.5 |
-| fasterwhisper-small     | ~640 MB | 0.10 | 0.06 | 1.3  | 7.3  | 0.7  | 4.8  | 0.1  | 1.0 |
-| nemo-fastconformer-ctc  | na | 0.14 | 0.14 | 17.1 | 55.8 | 8.2  | 19.2 | 4.3  | 6.6 |
-| nemo-fastconformer-rnnt | na | 0.13 | 0.15 | 15.2 | 53.4 | 6.9  | 12.7 | 3.1  | 4.6 | 
+| model                   | -   | stream   | offl  |  stream| offl  |   stream| offl    |     stream|   offl |
+| moonshine-onnx-tiny     | ~550 MB | 0.23 | 0.0 | 65.2 | 50.6 | 20.9 | 11.6 | 15.1 | 23.5 | 
+| moonshine-onnx-base     | ~970 MB | 0.16 | 0.0 | 32.9 | 16.1 | 12.6 | 5.1 | 7.8  | 12.7 | 
+| fasterwhisper-tiny      | ~230 MB | 0.25 | 0.0 | 6.0  | 34.7 | 2.6  | 22.1 | 1.1  | 6.6|
+| fasterwhisper-base      | ~320 MB | 0.11 | 0.0 | 4.0  | 17.2 | 1.8  | 14.1 | 0.8  | 4.3 |
+| fasterwhisper-small     | ~640 MB | 0.10 | 0.0 | 1.3  | 7.3  | 0.7  | 4.8  | 0.1  | 1.3 |
+| whisper-onnx-tiny (int8)| ~370 MB | - | - | 0.0  | -  | -  | -  | 3.3 | 15.78
+| nemo-fastconformer-ctc  | ~1440 MB | 0.14 | 0 | 17.1 | 55.8 | 8.2  | 19.2 | 4.3  | 11.1 |
+| nemo-fastconformer-rnnt | ~1440 MB | 0.13 | 0.05 | 15.2 | 53.4 | 6.9  | 12.7 | 3.1  | 8.14 | 
 | vosk-tiny               | ~110 MB | 0.31 | 0.18 | 19.2 | 25.8 | | | | |
 
 
 
 ## Take-aways
 
-* Raspberry Pi 5 can run all tested models (except for fasterwhisper-small and base)  on device in acceptable speed for streaming for scenarios where the speaker is on the slower side (see `../sample/jfk_space.wav`); for faster speech, only the moonshine_onnx_tiny model seems to be fast enough.
+* Raspberry Pi 5 can run all tested models (except for fasterwhisper-small and base)  on device, not all are practically acceptable for real-time streaming for faster speakers. Moonshine-onnx-tiny and the onnx version of whisper make the cut and seems ok for real time scenarios.
 * In general, Moonshine models significantly faster than tested Nemo models with much lower memory footprint (due to ONNX opt and smaller parameter size), but have higher WER (see HF leaderboard)
 
 

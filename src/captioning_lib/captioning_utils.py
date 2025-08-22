@@ -96,6 +96,12 @@ def get_argument_parser():
         default=False,
         help="Show detailed transcription information including mode and timing details.",
     )
+    parser.add_argument(
+        "--use_raspberry_pi_session_config",
+        action="store_true",
+        default=True,
+        help="Use Raspberry Pi optimized session configuration for ONNX models.",
+    )
     
     return parser
 ########## configurations ##########
@@ -120,7 +126,7 @@ LANGUAGE = 'en'
 ######################################
 
 
-def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_confidence_scores=False, model_path=None, output_streaming=True):
+def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_confidence_scores=False, model_path=None, output_streaming=True, use_raspberry_pi_session_config=True):
     logging.debug("Loading ASR model...")
     if model_name.startswith('fasterwhisper'):
         asr_model = transcribers.FasterWhisperTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming)
@@ -135,7 +141,7 @@ def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_
     elif model_name.startswith('vosk'):
         asr_model = transcribers.VoskTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming)
     elif model_name.startswith('whisperonnx'):
-        asr_model = transcribers.ONNXWhisperTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, model_path=model_path, output_streaming=output_streaming)
+        asr_model = transcribers.ONNXWhisperTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, model_path=model_path, output_streaming=output_streaming, use_raspberry_pi_session_config=use_raspberry_pi_session_config)
     else:
         raise ValueError(f"Unknown model type: {model_name}")
 

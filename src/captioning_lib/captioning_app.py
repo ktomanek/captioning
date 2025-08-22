@@ -186,7 +186,8 @@ def main():
                                                 sampling_rate=captioning_utils.SAMPLING_RATE, 
                                                 show_word_confidence_scores=args.show_word_confidence_scores,
                                                 model_path=args.model_path,
-                                                output_streaming=output_streaming)
+                                                output_streaming=output_streaming,
+                                                use_raspberry_pi_session_config=args.use_raspberry_pi_session_config)
     
     # Print transcription mode information
     mode = "Recent-chunk mode" if recent_chunk_mode else "Retranscribe mode"

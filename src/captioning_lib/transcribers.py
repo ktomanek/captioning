@@ -328,8 +328,10 @@ class ONNXWhisperTranscriber(Transcriber):
     # TODO
     BASE_MODEL_NAME = "openai/whisper-tiny"  # Constant for tokenizer
 
-    def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE, model_path=None, output_streaming=True):
+    def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE, model_path=None, output_streaming=True,
+                 use_raspberry_pi_session_config=True):
         self.model_path = model_path
+        self.use_raspberry_pi_session_config = use_raspberry_pi_session_config
         if not model_path:
             raise ValueError("model_path is required for ONNXWhisperTranscriber")
         super().__init__(model_name_or_path, sampling_rate, show_word_confidence_scores, language, output_streaming)
@@ -354,11 +356,18 @@ class ONNXWhisperTranscriber(Transcriber):
             if not os.path.exists(path):
                 raise FileNotFoundError(f"Required ONNX model file not found: {path}")
 
-        # Optimize for CPU
+        
         sess_options = ort.SessionOptions()
-        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-        sess_options.inter_op_num_threads = 0  # Use all available cores
-        sess_options.intra_op_num_threads = 0
+        if self.use_raspberry_pi_session_config:
+            # Raspberry Pi optimizations
+            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_EXTENDED
+            sess_options.intra_op_num_threads = 4  # Raspberry Pi has 4 cores
+            sess_options.inter_op_num_threads = 1   # Sequential execution works better on Pi
+            sess_options.enable_cpu_mem_arena = True # Better memory management on Pi
+            sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL # Avoid thread overhead
+        else:
+            sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+
 
         # Load ONNX sessions
         print(f"Loading ONNX models from: {self.model_path}")
