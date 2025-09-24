@@ -11,3 +11,4 @@ flask
 flask_socketio
 python-socketio[client]
 cryptography
+numpy
