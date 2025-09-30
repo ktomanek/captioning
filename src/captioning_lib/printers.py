@@ -45,13 +45,13 @@ class PlainCaptionPrinter(CaptionPrinter):
         """Update the caption display with the latest transcription"""
         if partial:
             if self.verbose and is_recent_chunk_mode and recent_chunk_duration:
-                print(f"\rPARTIAL (recent-chunk, {recent_chunk_duration:.1f}s chunk/{duration:.1f}s total): {transcript}", flush=True, end='')
+                print(f"\r\033[2K\rPARTIAL (recent-chunk, {recent_chunk_duration:.1f}s chunk/{duration:.1f}s total): {transcript}", flush=True, end='')
                 time.sleep(VERBOSE_STREAMING_DELAY)
             elif self.verbose and duration:
-                print(f"\rPARTIAL (retranscribe, {duration:.1f}s total): {transcript}", flush=True, end='')
+                print(f"\r\033[2K\rPARTIAL (retranscribe, {duration:.1f}s total): {transcript}", flush=True, end='')
                 time.sleep(VERBOSE_STREAMING_DELAY)
             else:
-                print(f"\rPARTIAL: {transcript}", flush=True, end='')
+                print(f"\r\033[2K\rPARTIAL: {transcript}", flush=True, end='')
         else:
             if self.verbose and duration:
                 print(f"\rSEGMENT ({duration:.1f}s total): {transcript}")
