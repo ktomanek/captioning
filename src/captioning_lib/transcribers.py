@@ -325,7 +325,7 @@ class ONNXWhisperTranscriber(Transcriber):
     """ONNX Whisper transcriber that uses user-provided ONNX model files."""
     AVAILABLE_MODELS = {'whisperonnx': None}
 
-    MAX_OUTPUT_LEN = 448 # Whisper upper bound
+    MAX_OUTPUT_LEN = 447 # Whisper upper bound (0-indexed)
 
     def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE, model_path=None, output_streaming=True,
                  use_raspberry_pi_session_config=True):
@@ -573,11 +573,11 @@ class ONNXWhisperTranscriber(Transcriber):
             
             if self.output_streaming:
                 # Stream decode tokens one by one
-                yield from self._decode_streaming(encoder_hidden_states, max_length=self.MAX_OUTPUT_LEN)
+                yield from self._decode_streaming(encoder_hidden_states)
             else:
                 # Accumulate all tokens and yield complete result
                 complete_text = ""
-                for token in self._decode_streaming(encoder_hidden_states, max_length=self.MAX_OUTPUT_LEN):
+                for token in self._decode_streaming(encoder_hidden_states):
                     complete_text += token
                 if complete_text.strip():
                     yield complete_text.strip()
@@ -586,16 +586,22 @@ class ONNXWhisperTranscriber(Transcriber):
             logging.error(f"ONNX transcription error: {e}")
             yield f"[Error: {str(e)}]"
 
-    def _decode_streaming(self, encoder_hidden_states, max_length=448):
+    def _decode_streaming(self, encoder_hidden_states, max_length=None):
         """Streaming decoding with ONNX models"""
+        if max_length is None:
+            max_length = self.MAX_OUTPUT_LEN
+
         # Initialize decoder input with start tokens
         decoder_input_ids = np.array([
             [self.sot_token, self.language_token, self.transcribe_token, self.no_timestamps_token]
         ], dtype=np.int64)
         
         past_key_values_dict = {}
-        
-        for i in range(max_length):
+
+        # Account for initial tokens (4) in max_length calculation
+        max_new_tokens = max_length - decoder_input_ids.shape[1]
+
+        for i in range(max_new_tokens):
             if not past_key_values_dict:
                 # First iteration - use full decoder
                 inputs = {
