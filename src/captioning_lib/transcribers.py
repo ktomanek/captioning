@@ -321,12 +321,13 @@ class MoonshineTranscriber(Transcriber):
         if text and text.strip():
             yield text.strip()
 
+# TODO support other languages
+# TODO use beam search
 class ONNXWhisperTranscriber(Transcriber):
     """ONNX Whisper transcriber that uses user-provided ONNX model files."""
     AVAILABLE_MODELS = {'whisperonnx': None}
 
-    # TODO
-    BASE_MODEL_NAME = "openai/whisper-tiny"  # Constant for tokenizer
+    MAX_OUTPUT_LEN = 448 # Whisper upper bound
 
     def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE, model_path=None, output_streaming=True,
                  use_raspberry_pi_session_config=True):
@@ -337,8 +338,7 @@ class ONNXWhisperTranscriber(Transcriber):
         super().__init__(model_name_or_path, sampling_rate, show_word_confidence_scores, language, output_streaming)
 
     def _load_model(self, model_name_or_path):
-        if self.language != DEFAULT_LANGUAGE:
-            raise ValueError(f"Language {self.language} is not supported by ONNXWhisperTranscriber yet.")
+        # Language support will be handled dynamically via tokenizer
 
         try:
             import onnxruntime as ort
@@ -386,14 +386,16 @@ class ONNXWhisperTranscriber(Transcriber):
         base_model_name = f"openai/whisper-{self.detected_model_size}"
         self.processor = WhisperProcessor.from_pretrained(base_model_name)
         self.tokenizer = self.processor.tokenizer
-        print(f"Using processor: {base_model_name}")
+        print(f"Using processor based on detected model size: {base_model_name}")
 
         # Special tokens
         self.sot_token = self.tokenizer.convert_tokens_to_ids("<|startoftranscript|>")
         self.eot_token = self.tokenizer.convert_tokens_to_ids("<|endoftext|>")
         self.no_timestamps_token = self.tokenizer.convert_tokens_to_ids("<|notimestamps|>")
         self.transcribe_token = self.tokenizer.convert_tokens_to_ids("<|transcribe|>")
-        self.english_token = self.tokenizer.convert_tokens_to_ids("<|en|>")
+
+        # Dynamic language token based on self.language
+        self.language_token = self._get_language_token(self.language)
 
         # Get input/output names
         self.decoder_outputs = [out.name for out in self.decoder_session.get_outputs()]
@@ -401,7 +403,111 @@ class ONNXWhisperTranscriber(Transcriber):
 
         logging.info(f"Loaded ONNXWhisper model from: {self.model_path}")
         logging.info(f"Detected model size: {self.detected_model_size}")
+        logging.info(f"Using language: {self.language}")
 
+    def _get_language_token(self, language):
+        """Get the language token ID for the specified language code."""
+        # Map common language codes to Whisper language tokens
+        language_token_map = {
+            'en': '<|en|>',
+            'es': '<|es|>',
+            'fr': '<|fr|>',
+            'de': '<|de|>',
+            'it': '<|it|>',
+            'pt': '<|pt|>',
+            'ru': '<|ru|>',
+            'ja': '<|ja|>',
+            'ko': '<|ko|>',
+            'zh': '<|zh|>',
+            'ar': '<|ar|>',
+            'hi': '<|hi|>',
+            'nl': '<|nl|>',
+            'pl': '<|pl|>',
+            'sv': '<|sv|>',
+            'da': '<|da|>',
+            'no': '<|no|>',
+            'fi': '<|fi|>',
+            'tr': '<|tr|>',
+            'th': '<|th|>',
+            'vi': '<|vi|>',
+            'he': '<|he|>',
+            'uk': '<|uk|>',
+            'cs': '<|cs|>',
+            'hu': '<|hu|>',
+            'ro': '<|ro|>',
+            'bg': '<|bg|>',
+            'hr': '<|hr|>',
+            'sk': '<|sk|>',
+            'sl': '<|sl|>',
+            'et': '<|et|>',
+            'lv': '<|lv|>',
+            'lt': '<|lt|>',
+            'mt': '<|mt|>',
+            'el': '<|el|>',
+            'ca': '<|ca|>',
+            'eu': '<|eu|>',
+            'gl': '<|gl|>',
+            'is': '<|is|>',
+            'mk': '<|mk|>',
+            'sr': '<|sr|>',
+            'bs': '<|bs|>',
+            'sq': '<|sq|>',
+            'cy': '<|cy|>',
+            'ga': '<|ga|>',
+            'mt': '<|mt|>',
+            'ml': '<|ml|>',
+            'ta': '<|ta|>',
+            'te': '<|te|>',
+            'kn': '<|kn|>',
+            'bn': '<|bn|>',
+            'gu': '<|gu|>',
+            'pa': '<|pa|>',
+            'ur': '<|ur|>',
+            'fa': '<|fa|>',
+            'sw': '<|sw|>',
+            'yo': '<|yo|>',
+            'af': '<|af|>',
+            'id': '<|id|>',
+            'ms': '<|ms|>',
+            'tl': '<|tl|>',
+            'jv': '<|jv|>',
+            'su': '<|su|>',
+            'my': '<|my|>',
+            'km': '<|km|>',
+            'lo': '<|lo|>',
+            'si': '<|si|>',
+            'ne': '<|ne|>',
+            'am': '<|am|>',
+            'ha': '<|ha|>',
+            'ig': '<|ig|>',
+            'xh': '<|xh|>',
+            'zu': '<|zu|>',
+            'sn': '<|sn|>',
+            'so': '<|so|>',
+            'mg': '<|mg|>',
+            'rw': '<|rw|>',
+            'ny': '<|ny|>',
+            'st': '<|st|>',
+            'tn': '<|tn|>',
+            've': '<|ve|>',
+            'ss': '<|ss|>',
+            'ts': '<|ts|>',
+            'nr': '<|nr|>',
+            'nso': '<|nso|>',
+        }
+
+        language_token = language_token_map.get(language)
+        if not language_token:
+            logging.warning(f"Language '{language}' not found in supported languages, falling back to English")
+            language_token = '<|en|>'
+
+        token_id = self.tokenizer.convert_tokens_to_ids(language_token)
+        if token_id is None:
+            raise ValueError(f"Language token '{language_token}' not found in tokenizer vocabulary")
+
+        return token_id
+
+    # TODO make sure its used
     def _detect_model_size(self):
         """Detect Whisper model size from encoder output dimensions"""
         # Get encoder output shape - typically [batch_size, seq_len, hidden_dim]
@@ -470,11 +576,11 @@ class ONNXWhisperTranscriber(Transcriber):
             
             if self.output_streaming:
                 # Stream decode tokens one by one
-                yield from self._decode_streaming(encoder_hidden_states, max_length=448)
+                yield from self._decode_streaming(encoder_hidden_states, max_length=self.MAX_OUTPUT_LEN)
             else:
                 # Accumulate all tokens and yield complete result
                 complete_text = ""
-                for token in self._decode_streaming(encoder_hidden_states, max_length=448):
+                for token in self._decode_streaming(encoder_hidden_states, max_length=self.MAX_OUTPUT_LEN):
                     complete_text += token
                 if complete_text.strip():
                     yield complete_text.strip()
@@ -487,7 +593,7 @@ class ONNXWhisperTranscriber(Transcriber):
         """Streaming decoding with ONNX models"""
         # Initialize decoder input with start tokens
         decoder_input_ids = np.array([
-            [self.sot_token, self.english_token, self.transcribe_token, self.no_timestamps_token]
+            [self.sot_token, self.language_token, self.transcribe_token, self.no_timestamps_token]
         ], dtype=np.int64)
         
         past_key_values_dict = {}
