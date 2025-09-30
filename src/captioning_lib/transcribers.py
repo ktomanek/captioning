@@ -321,8 +321,6 @@ class MoonshineTranscriber(Transcriber):
         if text and text.strip():
             yield text.strip()
 
-# TODO support other languages
-# TODO use beam search
 class ONNXWhisperTranscriber(Transcriber):
     """ONNX Whisper transcriber that uses user-provided ONNX model files."""
     AVAILABLE_MODELS = {'whisperonnx': None}
@@ -507,7 +505,6 @@ class ONNXWhisperTranscriber(Transcriber):
 
         return token_id
 
-    # TODO make sure its used
     def _detect_model_size(self):
         """Detect Whisper model size from encoder output dimensions"""
         # Get encoder output shape - typically [batch_size, seq_len, hidden_dim]
