@@ -334,10 +334,13 @@ class TranscriptionWorker():
 
 
 def get_audio_stream(input_device_index=INPUT_DEVICE_INDEX):
-    """Create and return a sounddevice InputStream
+    """Create and return a sounddevice InputStream (blocking mode)
 
     Uses a larger latency buffer to prevent overflow while still reading
     in AUDIO_FRAMES_TO_CAPTURE chunks for VAD compatibility.
+
+    Note: For better performance with long transcriptions, consider using
+    get_audio_stream_callback() instead.
     """
     device_info = sd.query_devices(input_device_index)
     print('Using audio input device:', device_info['name'])
@@ -348,6 +351,46 @@ def get_audio_stream(input_device_index=INPUT_DEVICE_INDEX):
         dtype=DTYPE,
         blocksize=AUDIO_FRAMES_TO_CAPTURE,
         latency='high'  # Use higher latency to prevent buffer overflows
+    )
+    audio_stream.start()
+    return audio_stream
+
+
+def get_audio_stream_callback(audio_queue, input_device_index=INPUT_DEVICE_INDEX):
+    """Create and return a sounddevice InputStream using callback mode
+
+    Callback mode runs audio capture in a high-priority thread, preventing
+    buffer overflows even during heavy processing loads (e.g., long transcriptions).
+
+    Args:
+        audio_queue: Queue to push audio data into
+        input_device_index: Audio device index to use
+
+    Returns:
+        audio_stream: Started InputStream object
+    """
+    device_info = sd.query_devices(input_device_index)
+    print('Using audio input device:', device_info['name'])
+
+    def audio_callback(indata, frames, time_info, status):
+        """Called by sounddevice in high-priority audio thread"""
+        if status:
+            logging.warning(f"Audio callback status: {status}")
+        # Convert to bytes and push to queue
+        audio_bytes = indata.copy().tobytes()
+        try:
+            audio_queue.put_nowait(audio_bytes)
+        except queue.Full:
+            logging.warning("Audio queue is full, skipping this chunk.")
+
+    audio_stream = sd.InputStream(
+        device=input_device_index,
+        channels=CHANNELS,
+        samplerate=SAMPLING_RATE,
+        dtype=DTYPE,
+        blocksize=AUDIO_FRAMES_TO_CAPTURE,
+        callback=audio_callback,
+        latency='high'
     )
     audio_stream.start()
     return audio_stream

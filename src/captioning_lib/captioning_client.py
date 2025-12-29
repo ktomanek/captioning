@@ -4,6 +4,7 @@
 import argparse
 import logging
 import numpy as np
+import queue
 from captioning_lib import printers
 import socketio
 import time
@@ -96,22 +97,23 @@ sio.connect(server_url)
 
 
 
+# Create a queue for audio data from callback
+audio_queue = queue.Queue(maxsize=1000)
+
 try:
-    audio_stream = captioning_utils.get_audio_stream(input_device_index=device_index)
+    audio_stream = captioning_utils.get_audio_stream_callback(audio_queue, input_device_index=device_index)
     print("Recording started. Press Ctrl+C to stop.")
     logging.info("Started audio stream...")
     caption_printer.start()
 
     while True:
-            data, overflowed = audio_stream.read(captioning_utils.AUDIO_FRAMES_TO_CAPTURE)
-            if overflowed:
-                logging.warning("Audio input overflow detected - some frames were dropped")
-            # Convert to bytes for socket transmission
-            audio_bytes = data.tobytes()
-            sio.emit('audio_data', audio_bytes)
-            logging.debug(f"Emitted audio data of size: {len(audio_bytes)}")
-            # Brief pause to allow response to be processed
-            time.sleep(0.01)
+            # Get audio from callback queue
+            try:
+                audio_bytes = audio_queue.get(timeout=0.1)
+                sio.emit('audio_data', audio_bytes)
+                logging.debug(f"Emitted audio data of size: {len(audio_bytes)}")
+            except queue.Empty:
+                continue
 except KeyboardInterrupt:
     print("KeyboardInterrupt received, stopping audio streaming.")
 

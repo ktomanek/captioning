@@ -58,24 +58,21 @@ def get_args():
     return args
 
 
-def capture_audio_from_stream(audio_stream, audio_queue, stop_threads, caption_printer):
+def capture_audio_from_stream(audio_stream, stop_threads, caption_printer):
+    """Capture audio using callback-based stream (non-blocking)
 
+    The audio stream runs in its own high-priority thread and automatically
+    pushes data to the queue via callback. This function just waits for
+    KeyboardInterrupt to stop.
+    """
     print("Recording started. Press Ctrl+C to stop.")
     caption_printer.start()
 
-
     try:
+        # Stream is already running via callback, just wait for interrupt
         while True:
-            data, overflowed = audio_stream.read(captioning_utils.AUDIO_FRAMES_TO_CAPTURE)
-            if overflowed:
-                logging.warning("Audio input overflow detected - some frames were dropped")
-            # Convert to bytes
-            audio_bytes = data.tobytes()
-            audio_queue.put(audio_bytes, timeout=0.1)
-    except queue.Full:
-            logging.warning("Audio queue is full, skipping this chunk.")
+            time.sleep(0.1)
     except KeyboardInterrupt:
-        # print("KeyboardInterrupt received, stopping recording.")
         pass
 
     finally:
@@ -83,15 +80,6 @@ def capture_audio_from_stream(audio_stream, audio_queue, stop_threads, caption_p
         # transcription thread to handle remaining audio chunks
         time.sleep(0.2)
         stop_threads.set()
-
-        # Empty queue
-        while not audio_queue.empty():
-            logging.debug("Emptying audio queue...")
-            try:
-                audio_queue.get_nowait()
-                audio_queue.task_done()
-            except queue.Empty:
-                break
 
         # Clean up audio resources
         audio_stream.stop()
@@ -240,8 +228,8 @@ def main():
             input_device = captioning_utils.find_default_input_device()
             print(f"Using default audio input device: {input_device}")
             device_index = input_device['index']
-        audio_stream = captioning_utils.get_audio_stream(input_device_index=device_index)
-        capture_audio_from_stream(audio_stream, audio_queue, stop_threads, caption_printer)
+        audio_stream = captioning_utils.get_audio_stream_callback(audio_queue, input_device_index=device_index)
+        capture_audio_from_stream(audio_stream, stop_threads, caption_printer)
 
         caption_printer.stop()
         print("\nRecording stopped.")
