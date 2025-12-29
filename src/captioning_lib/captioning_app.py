@@ -13,7 +13,6 @@ from captioning_lib import printers
 import queue
 from captioning_lib import captioning_utils
 from captioning_lib import evaluation_utils
-import pyaudio
 import threading
 import time
 
@@ -67,16 +66,20 @@ def capture_audio_from_stream(audio_stream, audio_queue, stop_threads, caption_p
 
     try:
         while True:
-            data = audio_stream.read(captioning_utils.AUDIO_FRAMES_TO_CAPTURE)
-            audio_queue.put(data, timeout=0.1)
+            data, overflowed = audio_stream.read(captioning_utils.AUDIO_FRAMES_TO_CAPTURE)
+            if overflowed:
+                logging.warning("Audio input overflow detected - some frames were dropped")
+            # Convert to bytes
+            audio_bytes = data.tobytes()
+            audio_queue.put(audio_bytes, timeout=0.1)
     except queue.Full:
             logging.warning("Audio queue is full, skipping this chunk.")
     except KeyboardInterrupt:
         # print("KeyboardInterrupt received, stopping recording.")
         pass
-        
+
     finally:
-        # Signal transcription thread to stop and wait for a bit for the 
+        # Signal transcription thread to stop and wait for a bit for the
         # transcription thread to handle remaining audio chunks
         time.sleep(0.2)
         stop_threads.set()
@@ -91,7 +94,7 @@ def capture_audio_from_stream(audio_stream, audio_queue, stop_threads, caption_p
                 break
 
         # Clean up audio resources
-        audio_stream.stop_stream()
+        audio_stream.stop()
         audio_stream.close()
         
 
@@ -229,7 +232,6 @@ def main():
                                 audio_queue, stop_threads,
                                 caption_printer, args.rtf)
     else:
-        audio = pyaudio.PyAudio()
         device_index = args.audio_input_device_index
         if device_index:
             print(f"Using user specified audio input device index: {device_index}")
@@ -238,10 +240,9 @@ def main():
             input_device = captioning_utils.find_default_input_device()
             print(f"Using default audio input device: {input_device}")
             device_index = input_device['index']
-        audio_stream = captioning_utils.get_audio_stream(audio, input_device_index=device_index)
+        audio_stream = captioning_utils.get_audio_stream(input_device_index=device_index)
         capture_audio_from_stream(audio_stream, audio_queue, stop_threads, caption_printer)
 
-        audio.terminate()
         caption_printer.stop()
         print("\nRecording stopped.")
         

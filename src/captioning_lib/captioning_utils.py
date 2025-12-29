@@ -3,7 +3,7 @@
 import argparse
 import logging
 import numpy as np
-import pyaudio
+import sounddevice as sd
 import queue
 import time
 
@@ -107,11 +107,11 @@ def get_argument_parser():
 ########## configurations ##########
 
 # audio settings
-FORMAT = pyaudio.paInt16
 CHANNELS = 1
 SAMPLING_RATE = 16000
 AUDIO_FRAMES_TO_CAPTURE = 512 # VAD strictly needs this number
 INPUT_DEVICE_INDEX = 1 # use default device
+DTYPE = np.int16  # sounddevice dtype
 
 # VAD settings
 VAD_THRESHOLD = 0.5
@@ -333,53 +333,58 @@ class TranscriptionWorker():
             self.accumulated_partial_text = ""
 
 
-def get_audio_stream(audio, input_device_index=INPUT_DEVICE_INDEX):
-    print('Using audio input device:', audio.get_device_info_by_index(input_device_index).get('name'))
-    audio_stream = audio.open(format=FORMAT, 
-                        channels=CHANNELS,
-                        rate=SAMPLING_RATE, 
-                        input=True,
-                        frames_per_buffer=AUDIO_FRAMES_TO_CAPTURE,
-                        input_device_index=input_device_index)
-
+def get_audio_stream(input_device_index=INPUT_DEVICE_INDEX):
+    """Create and return a sounddevice InputStream"""
+    device_info = sd.query_devices(input_device_index)
+    print('Using audio input device:', device_info['name'])
+    audio_stream = sd.InputStream(
+        device=input_device_index,
+        channels=CHANNELS,
+        samplerate=SAMPLING_RATE,
+        dtype=DTYPE,
+        blocksize=AUDIO_FRAMES_TO_CAPTURE
+    )
+    audio_stream.start()
     return audio_stream
 
 
 def list_audio_devices():
-    p = pyaudio.PyAudio()
-    for i in range(p.get_device_count()):
-        device_info = p.get_device_info_by_index(i)
-        print(f"* Device [{i}]: {device_info['name']} \t input channels: {device_info['maxInputChannels']}, output channels: {device_info['maxOutputChannels']}")
-    p.terminate()
+    """List all audio devices using sounddevice"""
+    devices = sd.query_devices()
+    for i, device in enumerate(devices):
+        print(f"* Device [{i}]: {device['name']} \t input channels: {device['max_input_channels']}, output channels: {device['max_output_channels']}")
 
 
 # find best audio input device by picking the one with at least one input channel and name 'default'
 def find_best_audio_input_device():
-    p = pyaudio.PyAudio()
+    """Find best audio input device by picking the one with at least one input channel and name 'default'"""
+    devices = sd.query_devices()
     best_device_index = None
-    for i in range(p.get_device_count()):
-        device_info = p.get_device_info_by_index(i)
-        print('device', device_info['name'], 'input channels', device_info['maxInputChannels'])
-        if device_info['maxInputChannels'] > 0 and 'default' in device_info['name'].lower():
+
+    for i, device in enumerate(devices):
+        print('device', device['name'], 'input channels', device['max_input_channels'])
+        if device['max_input_channels'] > 0 and 'default' in device['name'].lower():
             best_device_index = i
             break
-    p.terminate()
+
     return best_device_index
 
 
 def find_default_input_device():
-    """Find the default microphone device using PyAudio. If no default device is found, list all available input devices."""
-    p = pyaudio.PyAudio()
-    default_info = p.get_default_input_device_info()
-    p.terminate()
-    if default_info:
+    """Find the default microphone device using sounddevice. If no default device is found, list all available input devices."""
+    try:
+        default_id = sd.default.device[0]  # [0] is input, [1] is output
+        if default_id is None:
+            default_id = sd.query_devices(kind='input')['index']
+
+        default_info = sd.query_devices(default_id)
+
         print(f"Default input device: {default_info['name']} (index: {default_info['index']})")
         return {
             'name': default_info['name'],
             'index': default_info['index']
         }
-
-    if not default_info:
+    except:
         print("\nAll available input devices:")
         list_audio_devices()
         return None

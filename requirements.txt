@@ -1,5 +1,5 @@
 faster-whisper
-pyaudio
+sounddevice
 psutil
 rich
 silero_vad

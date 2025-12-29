@@ -4,7 +4,6 @@
 import argparse
 import logging
 import numpy as np
-import pyaudio
 from captioning_lib import printers
 import socketio
 import time
@@ -98,26 +97,28 @@ sio.connect(server_url)
 
 
 try:
-    audio = pyaudio.PyAudio()
-    audio_stream = captioning_utils.get_audio_stream(audio, input_device_index=device_index)
+    audio_stream = captioning_utils.get_audio_stream(input_device_index=device_index)
     print("Recording started. Press Ctrl+C to stop.")
     logging.info("Started audio stream...")
     caption_printer.start()
 
     while True:
-            data = audio_stream.read(captioning_utils.AUDIO_FRAMES_TO_CAPTURE)
-            sio.emit('audio_data', data)
-            logging.debug(f"Emitted audio data of size: {len(data)}")
+            data, overflowed = audio_stream.read(captioning_utils.AUDIO_FRAMES_TO_CAPTURE)
+            if overflowed:
+                logging.warning("Audio input overflow detected - some frames were dropped")
+            # Convert to bytes for socket transmission
+            audio_bytes = data.tobytes()
+            sio.emit('audio_data', audio_bytes)
+            logging.debug(f"Emitted audio data of size: {len(audio_bytes)}")
             # Brief pause to allow response to be processed
             time.sleep(0.01)
 except KeyboardInterrupt:
     print("KeyboardInterrupt received, stopping audio streaming.")
-    
+
 finally:
     # Make sure we disconnect properly
-    audio_stream.stop_stream()
+    audio_stream.stop()
     audio_stream.close()
-    audio.terminate()
     sio.disconnect()
     caption_printer.stop()
     print("Disconnected from server, all shut down")
