@@ -334,7 +334,11 @@ class TranscriptionWorker():
 
 
 def get_audio_stream(input_device_index=INPUT_DEVICE_INDEX):
-    """Create and return a sounddevice InputStream"""
+    """Create and return a sounddevice InputStream
+
+    Uses a larger latency buffer to prevent overflow while still reading
+    in AUDIO_FRAMES_TO_CAPTURE chunks for VAD compatibility.
+    """
     device_info = sd.query_devices(input_device_index)
     print('Using audio input device:', device_info['name'])
     audio_stream = sd.InputStream(
@@ -342,7 +346,8 @@ def get_audio_stream(input_device_index=INPUT_DEVICE_INDEX):
         channels=CHANNELS,
         samplerate=SAMPLING_RATE,
         dtype=DTYPE,
-        blocksize=AUDIO_FRAMES_TO_CAPTURE
+        blocksize=AUDIO_FRAMES_TO_CAPTURE,
+        latency='high'  # Use higher latency to prevent buffer overflows
     )
     audio_stream.start()
     return audio_stream
