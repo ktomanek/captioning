@@ -333,15 +333,26 @@ class TranscriptionWorker():
             self.accumulated_partial_text = ""
 
 
-def get_audio_stream(input_device_index=INPUT_DEVICE_INDEX):
+# TODO this is deprecated - remove in future
+def get_audio_stream(input_device_index=INPUT_DEVICE_INDEX, target_latency=2.0, audio=None):
     """Create and return a sounddevice InputStream (blocking mode)
 
     Uses a larger latency buffer to prevent overflow while still reading
     in AUDIO_FRAMES_TO_CAPTURE chunks for VAD compatibility.
 
+    Args:
+        input_device_index: Audio device index to use
+        target_latency: Buffer size in seconds. Higher = more stable but delayed.
+                       Recommended: 2.0 for Raspberry Pi, 0.2-0.5 for desktop,
+                       0.1 for voice agents that can tolerate occasional drops.
+        audio: Deprecated - no longer needed (kept for backward compatibility)
+
     Note: For better performance with long transcriptions, consider using
     get_audio_stream_callback() instead.
     """
+    if audio is not None:
+        logging.warning("The 'audio' parameter is deprecated and will be ignored. PyAudio is no longer used.")
+
     device_info = sd.query_devices(input_device_index)
     print('Using audio input device:', device_info['name'])
     audio_stream = sd.InputStream(
@@ -350,13 +361,13 @@ def get_audio_stream(input_device_index=INPUT_DEVICE_INDEX):
         samplerate=SAMPLING_RATE,
         dtype=DTYPE,
         blocksize=AUDIO_FRAMES_TO_CAPTURE,
-        latency=2.0  # 2 second buffer - needed for slower devices like Raspberry Pi
+        latency=target_latency
     )
     audio_stream.start()
     return audio_stream
 
 
-def get_audio_stream_callback(audio_queue, input_device_index=INPUT_DEVICE_INDEX):
+def get_audio_stream_callback(audio_queue, input_device_index=INPUT_DEVICE_INDEX, target_latency=2.0):
     """Create and return a sounddevice InputStream using callback mode
 
     Callback mode runs audio capture in a high-priority thread, preventing
@@ -365,6 +376,9 @@ def get_audio_stream_callback(audio_queue, input_device_index=INPUT_DEVICE_INDEX
     Args:
         audio_queue: Queue to push audio data into
         input_device_index: Audio device index to use
+        target_latency: Buffer size in seconds. Higher = more stable but delayed.
+                       Recommended: 2.0 for Raspberry Pi, 0.2-0.5 for desktop,
+                       0.1 for voice agents that can tolerate occasional drops.
 
     Returns:
         audio_stream: Started InputStream object
@@ -395,7 +409,7 @@ def get_audio_stream_callback(audio_queue, input_device_index=INPUT_DEVICE_INDEX
         dtype=DTYPE,
         blocksize=AUDIO_FRAMES_TO_CAPTURE,
         callback=audio_callback,
-        latency=2.0  # 2 second buffer - needed for slower devices like Raspberry Pi
+        latency=target_latency
     )
     audio_stream.start()
     return audio_stream
