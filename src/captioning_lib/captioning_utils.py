@@ -350,7 +350,7 @@ def get_audio_stream(input_device_index=INPUT_DEVICE_INDEX):
         samplerate=SAMPLING_RATE,
         dtype=DTYPE,
         blocksize=AUDIO_FRAMES_TO_CAPTURE,
-        latency='high'  # Use higher latency to prevent buffer overflows
+        latency=2.0  # 2 second buffer - needed for slower devices like Raspberry Pi
     )
     audio_stream.start()
     return audio_stream
@@ -373,13 +373,18 @@ def get_audio_stream_callback(audio_queue, input_device_index=INPUT_DEVICE_INDEX
     print('Using audio input device:', device_info['name'])
 
     def audio_callback(indata, frames, time_info, status):
-        """Called by sounddevice in high-priority audio thread"""
+        """Called by sounddevice in high-priority audio thread
+
+        Keep this minimal - any processing here can cause overflows
+        """
         if status:
-            logging.warning(f"Audio callback status: {status}")
-        # Convert to bytes and push to queue
-        audio_bytes = indata.copy().tobytes()
+            # Status flags indicate buffer issues
+            if status.input_overflow:
+                logging.warning(f"Audio callback status: input overflow")
+        # Push directly to queue (indata is already numpy array)
+        # Using bytes() instead of tobytes() for speed, and [:] for minimal copy
         try:
-            audio_queue.put_nowait(audio_bytes)
+            audio_queue.put_nowait(indata[:].tobytes())
         except queue.Full:
             logging.warning("Audio queue is full, skipping this chunk.")
 
@@ -390,7 +395,7 @@ def get_audio_stream_callback(audio_queue, input_device_index=INPUT_DEVICE_INDEX
         dtype=DTYPE,
         blocksize=AUDIO_FRAMES_TO_CAPTURE,
         callback=audio_callback,
-        latency='high'
+        latency=2.0  # 2 second buffer - needed for slower devices like Raspberry Pi
     )
     audio_stream.start()
     return audio_stream
