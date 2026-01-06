@@ -50,7 +50,6 @@ and then run
 
 ```modal setup```
 
-
 # Running Captioning App
 
 You can run the captioning app directly via:
