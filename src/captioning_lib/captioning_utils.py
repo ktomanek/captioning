@@ -82,7 +82,7 @@ def get_argument_parser():
     parser.add_argument(
         "--model_path",
         type=str,
-        help="Path to custom model file (required for whisperonnx model type).",
+        help="Path to custom model file (required for whisperonnx model type, optional for moonshine models to specify offline models without HF dependency).",
     )
     parser.add_argument(
         "--recent_chunk_mode",
@@ -133,7 +133,7 @@ def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_
     elif model_name.startswith('nemo'):
         asr_model = transcribers.NemoTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming)
     elif model_name.startswith('moonshine'):
-        asr_model = transcribers.MoonshineTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming)
+        asr_model = transcribers.MoonshineTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming, model_path=model_path)
     elif model_name.startswith('remote'):
         asr_model = transcribers.RemoteGPUTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming)
     elif model_name.startswith('translation'):

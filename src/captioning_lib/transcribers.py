@@ -300,7 +300,18 @@ class MoonshineTranscriber(Transcriber):
     AVAILABLE_MODELS = {'moonshine_onnx_tiny': 'tiny',
                         'moonshine_onnx_base': 'base'}
 
+    def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE, output_streaming=True, model_path=None):
+        self.models_dir = model_path
+        super().__init__(model_name_or_path, sampling_rate, show_word_confidence_scores, language, output_streaming)
+        
     def _load_model(self, model_name):
+        """Load Moonshine ONNX model.
+        
+        model_name: name of the Moonshine model to load (e.g., 'tiny', 'base').
+        models_dir: directory where the Moonshine ONNX model files are located. If not set, will
+            download models from Hugging Face Hub (may ignore cache). In order to work 
+            offline properly, first download the model and then provide the models_dir path.
+        """
 
         if self.language != DEFAULT_LANGUAGE:
             raise ValueError(f"Language {self.language} is not supported by MoonshineTranscriber.")
@@ -311,7 +322,13 @@ class MoonshineTranscriber(Transcriber):
         
         full_model_name = self.AVAILABLE_MODELS[model_name]
         self.tokenizer = load_tokenizer()
-        self.model = MoonshineOnnxModel(model_name=full_model_name)
+        
+        if self.models_dir:
+            print(f"Loading Moonshine model {model_name} from local path {self.models_dir} ...")
+            self.model = MoonshineOnnxModel(model_name=full_model_name, models_dir=self.models_dir)
+        else:
+            print(f"Loading Moonshine model {model_name} via HF Hub ...")
+            self.model = MoonshineOnnxModel(model_name=full_model_name)
 
         logging.info(f"Loaded Moonshine ONNX model: {full_model_name}")
 
