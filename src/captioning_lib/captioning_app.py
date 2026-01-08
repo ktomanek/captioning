@@ -166,7 +166,7 @@ def main():
             caption_printer = printers.PlainCaptionPrinter(verbose=args.verbose)
 
     
-    vad = captioning_utils.get_vad(eos_min_silence=args.eos_min_silence)    
+    vad = captioning_utils.get_vad(eos_min_silence=args.eos_min_silence, model_path=args.silero_vad_model_path)    
     # Set output_streaming based on recent_chunk_mode setting
     # When retranscribing, disable streaming to avoid repeated word-by-word display
     recent_chunk_mode = args.recent_chunk_mode

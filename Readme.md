@@ -30,19 +30,24 @@ You may have to install:
 
 ```sudo apt-get install portaudio19-dev```
 
-To install Nemo models
 
-```pip install "nemo_toolkit[asr]"```
+Download the silero VAD model
 
-To install Moonshine ONNX models:
+```python src/captioning_lib/helpers/download_silero_vad_model.py```
+
+To install Moonshine ONNX models (recommended):
 
 ```pip install useful-moonshine-onnx@git+https://git@github.com/usefulsensors/moonshine.git#subdirectory=moonshine-onnx```
 
-To install the Vosk model:
+To install Nemo models (optional)
+
+```pip install "nemo_toolkit[asr]"```
+
+To install the Vosk model (optional)
 
 ```pip install vosk```
 
-To use the Modal based transcriber, also install:
+To use the Modal based transcriber, (optional):
 
 ```pip install modal==1.0```
 

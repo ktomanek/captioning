@@ -5,7 +5,7 @@ import urllib.request
 import ssl
 import hashlib
 import subprocess
-import sys
+import os
 from pathlib import Path
 
 
@@ -23,10 +23,9 @@ MODELS = {
     }
 }
 
-DEFAULT_MODEL_DIR = Path(__file__).parent / 'models' / 'silero_vad'
+DEFAULT_MODEL_DIR = os.path.join('models', 'silero_vad')
 
-
-def download_model(model_name='silero_vad.onnx', output_dir=None, force=False):
+def download_model(model_name='silero_vad.onnx', output_dir=DEFAULT_MODEL_DIR, force=False):
     """
     Download Silero VAD ONNX model.
 
@@ -42,18 +41,15 @@ def download_model(model_name='silero_vad.onnx', output_dir=None, force=False):
         raise ValueError(f"Unknown model: {model_name}. Available: {list(MODELS.keys())}")
 
     # Set output directory
-    if output_dir is None:
-        output_dir = DEFAULT_MODEL_DIR
-    else:
-        output_dir = Path(output_dir)
+    #output_dir = Path(output_dir)
 
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_path = output_dir / model_name
+    os.makedirs(output_dir, exist_ok=True)
+    #output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = os.path.join(output_dir, model_name)
 
     # Check if already exists
-    if output_path.exists() and not force:
+    if os.path.exists(output_path) and not force:
         print(f"✓ Model already exists: {output_path}")
-        print(f"  Size: {output_path.stat().st_size / 1024 / 1024:.2f} MB")
         print(f"  Use force=True to re-download")
         return output_path
 
@@ -64,69 +60,63 @@ def download_model(model_name='silero_vad.onnx', output_dir=None, force=False):
     print(f"  URL: {model_info['url']}")
     print(f"  Destination: {output_path}")
 
+    # Try urllib first
     try:
-        # Try urllib first
-        try:
-            # Create SSL context that doesn't verify certificates (for GitHub raw content)
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
+        # Create SSL context that doesn't verify certificates (for GitHub raw content)
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
 
-            # Download with progress
-            def reporthook(block_num, block_size, total_size):
-                downloaded = block_num * block_size
-                if total_size > 0:
-                    percent = min(downloaded * 100 / total_size, 100)
-                    mb_downloaded = downloaded / 1024 / 1024
-                    mb_total = total_size / 1024 / 1024
-                    print(f"\r  Progress: {percent:.1f}% ({mb_downloaded:.2f}/{mb_total:.2f} MB)", end='')
+        # Download with progress
+        def reporthook(block_num, block_size, total_size):
+            downloaded = block_num * block_size
+            if total_size > 0:
+                percent = min(downloaded * 100 / total_size, 100)
+                mb_downloaded = downloaded / 1024 / 1024
+                mb_total = total_size / 1024 / 1024
+                print(f"\r  Progress: {percent:.1f}% ({mb_downloaded:.2f}/{mb_total:.2f} MB)", end='')
 
-            opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ssl_context))
-            urllib.request.install_opener(opener)
-            urllib.request.urlretrieve(model_info['url'], output_path, reporthook=reporthook)
-            print()  # New line after progress
+        opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ssl_context))
+        urllib.request.install_opener(opener)
+        urllib.request.urlretrieve(model_info['url'], output_path, reporthook=reporthook)
+        print()  # New line after progress
 
-        except Exception as urllib_error:
-            print(f"\n  urllib failed: {urllib_error}")
-            print(f"  Trying curl as fallback...")
+    except Exception as urllib_error:
+        print(f"\n  urllib failed: {urllib_error}")
+        print(f"  Trying curl as fallback...")
 
-            # Fallback to curl
-            result = subprocess.run(
-                ['curl', '-L', '-o', str(output_path), model_info['url']],
-                capture_output=True,
-                text=True
-            )
+        # Fallback to curl
+        result = subprocess.run(
+            ['curl', '-L', '-o', str(output_path), model_info['url']],
+            capture_output=True,
+            text=True
+        )
 
-            if result.returncode != 0:
-                raise RuntimeError(f"curl failed: {result.stderr}")
+        if result.returncode != 0:
+            raise RuntimeError(f"curl failed: {result.stderr}")
 
-            print(f"  ✓ Downloaded successfully using curl")
+        print(f"  ✓ Downloaded successfully using curl")
 
-        # Verify checksum if provided
-        if model_info['sha256']:
-            print(f"  Verifying checksum...")
-            sha256_hash = hashlib.sha256()
-            with open(output_path, "rb") as f:
-                for byte_block in iter(lambda: f.read(4096), b""):
-                    sha256_hash.update(byte_block)
+    # Verify checksum if provided
+    if model_info['sha256']:
+        print(f"  Verifying checksum...")
+        sha256_hash = hashlib.sha256()
+        with open(output_path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
 
-            actual_hash = sha256_hash.hexdigest()
-            if actual_hash != model_info['sha256']:
-                output_path.unlink()  # Delete corrupted file
-                raise ValueError(f"Checksum mismatch! Expected {model_info['sha256']}, got {actual_hash}")
-            print(f"  ✓ Checksum verified")
+        actual_hash = sha256_hash.hexdigest()
+        if actual_hash != model_info['sha256']:
+            output_path.unlink()  # Delete corrupted file
+            raise ValueError(f"Checksum mismatch! Expected {model_info['sha256']}, got {actual_hash}")
+        print(f"  ✓ Checksum verified")
 
-        print(f"✓ Download complete!")
-        print(f"  Size: {output_path.stat().st_size / 1024 / 1024:.2f} MB")
-        return output_path
-
-    except Exception as e:
-        if output_path.exists():
-            output_path.unlink()  # Clean up partial download
-        raise RuntimeError(f"Failed to download model: {e}")
+    print(f"✓ Download complete!")
+    return output_path
 
 
-def download_all_models(output_dir=None, force=False):
+
+def download_all_models(output_dir, force=False):
     """Download all available Silero VAD models."""
     print("=" * 70)
     print("Downloading all Silero VAD ONNX models")
@@ -165,7 +155,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--output-dir',
         type=str,
-        default=None,
+        default=DEFAULT_MODEL_DIR,
         help=f'Output directory (default: {DEFAULT_MODEL_DIR})'
     )
     parser.add_argument(

@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import os
 import numpy as np
 import sounddevice as sd
 import queue
@@ -84,6 +85,12 @@ def get_argument_parser():
         help="Path to custom model file (required for whisperonnx model type, optional for moonshine models to specify offline models without HF dependency).",
     )
     parser.add_argument(
+        "--silero_vad_model_path",
+        type=str,
+        default="models/silero_vad/silero_vad.onnx",
+        help="Path to Silero VAD ONNX model file (default: models/silero_vad/silero_vad.onnx).",
+    )
+    parser.add_argument(
         "--recent_chunk_mode",
         action="store_true",
         default=False,
@@ -115,6 +122,7 @@ DTYPE = np.int16  # sounddevice dtype
 # VAD settings
 VAD_THRESHOLD = 0.5
 EOS_MIN_SILENCE = 100 
+VAD_MODEL_PATH = os.path.join('models', 'silero_vad', 'silero_vad.onnx')
 
 # how many seconds we need to record to transcribe
 MINIMUM_PARTIAL_DURATION = 0.1
@@ -148,23 +156,25 @@ def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_
     return asr_model
 
 
-def get_vad(eos_min_silence=EOS_MIN_SILENCE, vad_threshold=VAD_THRESHOLD, sampling_rate=SAMPLING_RATE):
+def get_vad(eos_min_silence=EOS_MIN_SILENCE, vad_threshold=VAD_THRESHOLD, sampling_rate=SAMPLING_RATE, model_path=VAD_MODEL_PATH):
     """
     Load ONNX-only Silero VAD (PyTorch-free implementation).
 
+    Args:
+        eos_min_silence: Minimum silence duration in ms to end speech segment
+        vad_threshold: Speech probability threshold (0.0-1.0)
+        sampling_rate: Audio sample rate (8000 or 16000)
+        model_path: Path to ONNX model file (default: models/silero_vad/silero_vad.onnx)
+
     Silero VAD requires fixed sample windows (512 for 16kHz sampling rate).
-    Model is loaded from: models/silero_vad/silero_vad.onnx
     """
-
     from pathlib import Path
-
-    # Model path relative to project root
-    model_path = Path(__file__).parent.parent.parent / 'models' / 'silero_vad' / 'silero_vad.onnx'
+    model_path = Path(model_path)
 
     if not model_path.exists():
         raise FileNotFoundError(
             f"Silero VAD model not found at: {model_path}\n"
-            f"Please download it by running: python helpers/download_silero_vad_model.py"
+            f"Change path or download it by running: python download_silero_vad_model.py"
         )
 
     vad_model = load_silero_vad(model_path)
