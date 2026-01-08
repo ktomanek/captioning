@@ -35,6 +35,10 @@ Download the silero VAD model
 
 ```python src/captioning_lib/helpers/download_silero_vad_model.py```
 
+To install Whisper models (HF transformers):
+
+```pip install transformers faster-whisper```
+
 To install Moonshine ONNX models (recommended):
 
 ```pip install useful-moonshine-onnx@git+https://git@github.com/usefulsensors/moonshine.git#subdirectory=moonshine-onnx```

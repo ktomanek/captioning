@@ -1,10 +1,9 @@
-faster-whisper
+useful-moonshine-onnx@git+https://git@github.com/usefulsensors/moonshine.git#subdirectory=moonshine-onnx
 sounddevice
 psutil
 rich
 soundfile
 jiwer
-transformers
 onnxruntime
 flask
 flask_socketio

@@ -1,17 +1,17 @@
 # used for captioning evaluation
 
-import jiwer
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 from captioning_lib import printers
 
-import soundfile as sf
-from transformers.models.whisper.english_normalizer import BasicTextNormalizer
-transcript_normalizer = BasicTextNormalizer()
 
 def get_wer(reference_text: str, transcript_text: str, normalized: bool = True) -> float:
     """Calculate Word Error Rate (WER) between reference and transcript."""
-    
+
+    from transformers.models.whisper.english_normalizer import BasicTextNormalizer
+    import jiwer
+    transcript_normalizer = BasicTextNormalizer()
+
     if normalized:
         reference_text = transcript_normalizer(reference_text)
         transcript_text = transcript_normalizer(transcript_text)
@@ -52,6 +52,8 @@ class EvaluationPrinter(printers.CaptionPrinter):
 
 def read_audio_file(file_path: str) -> Tuple[np.ndarray, int]:
     """Read audio file and return data as float32 and sample rate."""
+    import soundfile as sf
+
     data, sample_rate = sf.read(file_path)
     
     # Convert to mono if stereo

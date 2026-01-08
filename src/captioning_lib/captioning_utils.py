@@ -7,12 +7,11 @@ import numpy as np
 import sounddevice as sd
 import queue
 import time
-
-from captioning_lib.silero_vad import VADIterator, load_silero_vad
-from captioning_lib import transcribers
+from pathlib import Path
 
 ########## configurations ##########
 def get_argument_parser():
+    from captioning_lib import transcribers
     parser = argparse.ArgumentParser(description="Real-time audio captioning using Whisper ASR and Silero VAD.")
     parser.add_argument(
         "-m",
@@ -134,6 +133,7 @@ LANGUAGE = 'en'
 
 
 def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_confidence_scores=False, model_path=None, output_streaming=True, use_raspberry_pi_session_config=True):
+    from captioning_lib import transcribers
     logging.debug("Loading ASR model...")
     if model_name.startswith('fasterwhisper'):
         asr_model = transcribers.FasterWhisperTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming)
@@ -168,7 +168,7 @@ def get_vad(eos_min_silence=EOS_MIN_SILENCE, vad_threshold=VAD_THRESHOLD, sampli
 
     Silero VAD requires fixed sample windows (512 for 16kHz sampling rate).
     """
-    from pathlib import Path
+    from captioning_lib.silero_vad import VADIterator, load_silero_vad
     model_path = Path(model_path)
 
     if not model_path.exists():
