@@ -2,7 +2,6 @@ faster-whisper
 sounddevice
 psutil
 rich
-silero_vad
 soundfile
 jiwer
 transformers

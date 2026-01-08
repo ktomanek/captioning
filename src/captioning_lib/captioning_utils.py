@@ -7,8 +7,7 @@ import sounddevice as sd
 import queue
 import time
 
-from silero_vad import VADIterator, load_silero_vad
-from captioning_lib import printers
+from captioning_lib.silero_vad import VADIterator, load_silero_vad
 from captioning_lib import transcribers
 
 ########## configurations ##########
@@ -148,16 +147,34 @@ def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_
     print(f"ASR model {model_name} loaded.")
     return asr_model
 
+
 def get_vad(eos_min_silence=EOS_MIN_SILENCE, vad_threshold=VAD_THRESHOLD, sampling_rate=SAMPLING_RATE):
-    # Silero VAD now requires fixed sample windows (512 for 16khz sampling rate)
-    vad_model = load_silero_vad(onnx=True)
+    """
+    Load ONNX-only Silero VAD (PyTorch-free implementation).
+
+    Silero VAD requires fixed sample windows (512 for 16kHz sampling rate).
+    Model is loaded from: models/silero_vad/silero_vad.onnx
+    """
+
+    from pathlib import Path
+
+    # Model path relative to project root
+    model_path = Path(__file__).parent.parent.parent / 'models' / 'silero_vad' / 'silero_vad.onnx'
+
+    if not model_path.exists():
+        raise FileNotFoundError(
+            f"Silero VAD model not found at: {model_path}\n"
+            f"Please download it by running: python helpers/download_silero_vad_model.py"
+        )
+
+    vad_model = load_silero_vad(model_path)
     vad_iterator = VADIterator(
         model=vad_model,
         sampling_rate=sampling_rate,
         threshold=vad_threshold,
         min_silence_duration_ms=eos_min_silence,
     )
-    print('VAD loaded.')
+    print(f'Silero VAD loaded from: {model_path}')
     return vad_iterator
 
 class TranscriptionWorker():

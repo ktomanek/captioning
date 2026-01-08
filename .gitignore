@@ -9,3 +9,5 @@ ngrok
 *egg*
 build/*
 onnx_captioning.md
+vad_testing
+models
