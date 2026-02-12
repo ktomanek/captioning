@@ -410,14 +410,25 @@ def get_audio_stream_callback(audio_queue, input_device_index=INPUT_DEVICE_INDEX
     Returns:
         audio_stream: Started InputStream object
     """
-    # Query device info only if it's a numeric index
-    if isinstance(input_device_index, int):
-        device_info = sd.query_devices(input_device_index)
-        device_name = device_info['name']
-    else:
-        # For ALSA device strings like "plughw:1,0", skip query_devices
-        device_name = input_device_index
-    print('Using audio input device:', device_name)
+    device_info = sd.query_devices(input_device_index)
+    print('Using audio input device:', device_info['name'])
+
+    # Check if device supports the target sample rate
+    device_sample_rate = SAMPLING_RATE
+    needs_resampling = False
+
+    try:
+        sd.check_input_settings(device=input_device_index, channels=CHANNELS,
+                                samplerate=SAMPLING_RATE, dtype=DTYPE)
+        print(f"Device supports {SAMPLING_RATE}Hz")
+    except sd.PortAudioError:
+        # Device doesn't support 16kHz, use device's default sample rate
+        device_sample_rate = int(device_info['default_samplerate'])
+        needs_resampling = True
+        print(f"Device doesn't support {SAMPLING_RATE}Hz, capturing at {device_sample_rate}Hz and downsampling")
+
+    # Adjust blocksize for device sample rate
+    device_blocksize = int(AUDIO_FRAMES_TO_CAPTURE * device_sample_rate / SAMPLING_RATE) if needs_resampling else AUDIO_FRAMES_TO_CAPTURE
 
     def audio_callback(indata, frames, time_info, status):
         """Called by sounddevice in high-priority audio thread
@@ -428,19 +439,31 @@ def get_audio_stream_callback(audio_queue, input_device_index=INPUT_DEVICE_INDEX
             # Status flags indicate buffer issues
             if status.input_overflow:
                 logging.warning(f"Audio callback status: input overflow")
-        # Push directly to queue (indata is already numpy array)
-        # Using bytes() instead of tobytes() for speed, and [:] for minimal copy
+
+        # Downsample if needed
+        if needs_resampling:
+            # Simple downsampling by averaging (48kHz -> 16kHz is 3:1)
+            downsample_factor = device_sample_rate // SAMPLING_RATE
+            # indata shape: (frames, channels)
+            num_output_frames = len(indata) // downsample_factor
+            resampled = indata[:num_output_frames * downsample_factor].reshape(
+                num_output_frames, downsample_factor, CHANNELS
+            ).mean(axis=1).astype(DTYPE)
+            audio_data = resampled.tobytes()
+        else:
+            audio_data = indata[:].tobytes()
+
         try:
-            audio_queue.put_nowait(indata[:].tobytes())
+            audio_queue.put_nowait(audio_data)
         except queue.Full:
             logging.warning("Audio queue is full, skipping this chunk.")
 
     audio_stream = sd.InputStream(
         device=input_device_index,
         channels=CHANNELS,
-        samplerate=SAMPLING_RATE,
+        samplerate=device_sample_rate,
         dtype=DTYPE,
-        blocksize=AUDIO_FRAMES_TO_CAPTURE,
+        blocksize=device_blocksize,
         callback=audio_callback,
         latency=target_latency
     )
