@@ -410,8 +410,13 @@ def get_audio_stream_callback(audio_queue, input_device_index=INPUT_DEVICE_INDEX
     Returns:
         audio_stream: Started InputStream object
     """
-    device_info = sd.query_devices(input_device_index)
-    device_name = device_info['name'] if isinstance(device_info, dict) else str(input_device_index)
+    # Query device info only if it's a numeric index
+    if isinstance(input_device_index, int):
+        device_info = sd.query_devices(input_device_index)
+        device_name = device_info['name']
+    else:
+        # For ALSA device strings like "plughw:1,0", skip query_devices
+        device_name = input_device_index
     print('Using audio input device:', device_name)
 
     def audio_callback(indata, frames, time_info, status):
