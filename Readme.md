@@ -35,6 +35,9 @@ Download the silero VAD model
 
 ```python src/captioning_lib/helpers/download_silero_vad_model.py```
 
+
+## Optional: other models 
+
 To install Moonshine ONNX models (recommended):
 
 ```pip install useful-moonshine-onnx@git+https://git@github.com/usefulsensors/moonshine.git#subdirectory=moonshine-onnx```
@@ -47,6 +50,8 @@ To install the Vosk model (optional)
 
 ```pip install vosk```
 
+## Optional: Run models remotely
+
 To use the Modal based transcriber, (optional):
 
 ```pip install modal==1.0```
@@ -54,6 +59,12 @@ To use the Modal based transcriber, (optional):
 and then run
 
 ```modal setup```
+
+## Optional: Whisper HF to ONNX conversion
+
+* if you want to use onnx Whisper models (for `-m whisperonnx` model type), you need to convert your Whisper model to onnx first;
+* you can use `src/captioning_lib/convert_hf_whisper_to_onnx.py` for that, this will create a f32 and a int8 version.
+* you will need to `pip install optimum` for that.
 
 # Running Captioning App
 

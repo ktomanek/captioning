@@ -3,7 +3,6 @@ psutil
 rich
 soundfile
 jiwer
-onnxruntime
 flask
 flask_socketio
 python-socketio[client]
@@ -11,3 +10,4 @@ cryptography
 numpy
 transformers
 faster-whisper
+onnxruntime
