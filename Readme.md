@@ -35,10 +35,6 @@ Download the silero VAD model
 
 ```python src/captioning_lib/helpers/download_silero_vad_model.py```
 
-To install Whisper models (HF transformers):
-
-```pip install transformers faster-whisper```
-
 To install Moonshine ONNX models (recommended):
 
 ```pip install useful-moonshine-onnx@git+https://git@github.com/usefulsensors/moonshine.git#subdirectory=moonshine-onnx```
@@ -63,7 +59,14 @@ and then run
 
 You can run the captioning app directly via:
 
-```python captioning_app.py --model moonshine_onnx_tiny --rich_captions --eos_min_silence=200```
+```python src/captioning_lib/captioning_app.py --model fasterwhisper_tiny --rich_captions --eos_min_silence=200```
+
+If your input device doesn't support recording in 16khz, you can use the ALSA device string or ALSA PCM device name instead of the index of your input device (Format: plughw:CARD,DEVICE).
+In this case, the plughw:1,0 device will automatically resample from your device's native sampling rate to the requested sampling rate (16kHz).
+
+```
+python src/captioning_lib/captioning_app.py -m fasterwhisper_tiny -rc -i plughw:1,0
+```
 
 # Evaluate ASR Streamig performance
 

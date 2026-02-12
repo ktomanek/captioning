@@ -1,4 +1,3 @@
-useful-moonshine-onnx@git+https://git@github.com/usefulsensors/moonshine.git#subdirectory=moonshine-onnx
 sounddevice
 psutil
 rich
@@ -10,3 +9,5 @@ flask_socketio
 python-socketio[client]
 cryptography
 numpy
+transformers
+faster-whisper

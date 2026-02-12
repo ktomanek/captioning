@@ -222,7 +222,12 @@ def main():
     else:
         device_index = args.audio_input_device_index
         if device_index:
-            print(f"Using user specified audio input device index: {device_index}")
+            # Convert to int if it's a numeric string, otherwise keep as string (e.g., "plughw:1,0")
+            try:
+                device_index = int(device_index)
+            except (ValueError, TypeError):
+                pass  # Keep as string for ALSA device names
+            print(f"Using user specified audio input device: {device_index}")
         else:
             # find default device index
             input_device = captioning_utils.find_default_input_device()

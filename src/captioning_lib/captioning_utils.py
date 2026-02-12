@@ -69,8 +69,8 @@ def get_argument_parser():
     parser.add_argument(
         "-i",
         "--audio_input_device_index",
-        type=int,
-        help="Index of the audio input device to use (default is 1).",
+        type=str,
+        help="Index or name of the audio input device to use (e.g., 0 or 'plughw:1,0').",
     )
     parser.add_argument(
         "-d",
@@ -411,7 +411,8 @@ def get_audio_stream_callback(audio_queue, input_device_index=INPUT_DEVICE_INDEX
         audio_stream: Started InputStream object
     """
     device_info = sd.query_devices(input_device_index)
-    print('Using audio input device:', device_info['name'])
+    device_name = device_info['name'] if isinstance(device_info, dict) else str(input_device_index)
+    print('Using audio input device:', device_name)
 
     def audio_callback(indata, frames, time_info, status):
         """Called by sounddevice in high-priority audio thread
