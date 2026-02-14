@@ -84,17 +84,27 @@ class FasterWhisperTranscriber(Transcriber):
     AVAILABLE_MODELS = {'fasterwhisper_tiny': 'tiny',
                         'fasterwhisper_base': 'base',
                         'fasterwhisper_small': 'small'}
-    
-    def _load_model(self, model_name):
-        if model_name not in self.AVAILABLE_MODELS.keys():
-            raise ValueError(f"Model {model_name} is not supported by WhisperTranscriber.")
-        
-        from faster_whisper import WhisperModel
-        
-        full_model_name = self.AVAILABLE_MODELS[model_name]
-        self.model = WhisperModel(full_model_name, device="cpu", compute_type="int8")
 
-        logging.info(f"Loaded FasterWhisper model: {model_name} --> {full_model_name}")
+    def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE, output_streaming=True, model_path=None):
+        self.model_path = model_path
+        super().__init__(model_name_or_path, sampling_rate, show_word_confidence_scores, language, output_streaming)
+
+    def _load_model(self, model_name):
+        from faster_whisper import WhisperModel
+
+        # If model_path is provided, use it as a custom model
+        if self.model_path:
+            print(f"Loading FasterWhisper model from custom path: {self.model_path}")
+            self.model = WhisperModel(self.model_path, device="cpu", compute_type="int8")
+            logging.info(f"Loaded FasterWhisper model from custom path: {self.model_path}")
+        else:
+            # Use predefined models
+            if model_name not in self.AVAILABLE_MODELS.keys():
+                raise ValueError(f"Model {model_name} is not supported by WhisperTranscriber.")
+
+            full_model_name = self.AVAILABLE_MODELS[model_name]
+            self.model = WhisperModel(full_model_name, device="cpu", compute_type="int8")
+            logging.info(f"Loaded FasterWhisper model: {model_name} --> {full_model_name}")
 
     def _transcribe(self, audio_data, segment_end):
         # for partial transcriptions, we are using smaller beam size

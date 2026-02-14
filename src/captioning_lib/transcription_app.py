@@ -20,7 +20,7 @@ def get_wer(reference_text: str, transcript_text: str, normalized: bool = True) 
 def get_transcriber(model_name, sampling_rate, model_path=None, use_raspberry_pi_session_config=True):
     """Get the appropriate transcriber based on model name"""
     if model_name in FasterWhisperTranscriber.AVAILABLE_MODELS:
-        return FasterWhisperTranscriber(model_name, sampling_rate)
+        return FasterWhisperTranscriber(model_name, sampling_rate, model_path=model_path)
     elif model_name in NemoTranscriber.AVAILABLE_MODELS:
         return NemoTranscriber(model_name, sampling_rate)
     elif model_name in MoonshineTranscriber.AVAILABLE_MODELS:

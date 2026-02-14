@@ -136,7 +136,7 @@ def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_
     from captioning_lib import transcribers
     logging.debug("Loading ASR model...")
     if model_name.startswith('fasterwhisper'):
-        asr_model = transcribers.FasterWhisperTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming)
+        asr_model = transcribers.FasterWhisperTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming, model_path=model_path)
     elif model_name.startswith('nemo'):
         asr_model = transcribers.NemoTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming)
     elif model_name.startswith('moonshine'):
