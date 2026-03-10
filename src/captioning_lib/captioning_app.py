@@ -190,10 +190,13 @@ def main():
         streaming_info = " (token streaming disabled to avoid repetition)"
     
     print(f"Transcription mode: {mode}{streaming_info}")
-    print(f"Partial duration: {args.min_partial_duration}s")
+    if args.disable_partials:
+        print(f"Partials: disabled (only complete segments will be shown)")
+    else:
+        print(f"Partial duration: {args.min_partial_duration}s")
     
     # Warning for suboptimal configuration
-    if recent_chunk_mode and args.min_partial_duration < 2.0:
+    if not args.disable_partials and recent_chunk_mode and args.min_partial_duration < 2.0:
         print(f"⚠️  WARNING: Recent-chunk mode with short partial duration ({args.min_partial_duration}s < 2.0s) may reduce transcription quality.")
         print("   Consider using retranscribe mode (default) for short durations or increase --min_partial_duration.")
     
@@ -202,7 +205,7 @@ def main():
     # Start transcription thread
     stop_threads = threading.Event()  # Event to signal threads to stop    
     transcription_handler = captioning_utils.TranscriptionWorker(sampling_rate=captioning_utils.SAMPLING_RATE)
-    transcriber = threading.Thread(target=transcription_handler.transcription_worker, 
+    transcriber = threading.Thread(target=transcription_handler.transcription_worker,
                                    kwargs={'vad': vad,
                                            'asr': asr_model,
                                            'audio_queue': audio_queue,
@@ -210,7 +213,8 @@ def main():
                                            'stop_threads': stop_threads,
                                            'min_partial_duration': args.min_partial_duration,
                                            'max_segment_duration': args.max_segment_duration,
-                                           'recent_chunk_mode': args.recent_chunk_mode})
+                                           'recent_chunk_mode': args.recent_chunk_mode,
+                                           'disable_partials': args.disable_partials})
     transcriber.daemon = True
     transcriber.start()
 

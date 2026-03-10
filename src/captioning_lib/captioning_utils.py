@@ -55,6 +55,12 @@ def get_argument_parser():
         help="Minimum duration in seconds for partial transcriptions to be displayed.",
     )
     parser.add_argument(
+        "--disable_partials",
+        action="store_true",
+        default=False,
+        help="Disable partial transcriptions entirely, only show complete segments.",
+    )
+    parser.add_argument(
         "--max_segment_duration",
         type=float,
         default=15.0,
@@ -221,7 +227,8 @@ class TranscriptionWorker():
             stop_threads,
             min_partial_duration=MINIMUM_PARTIAL_DURATION,
             max_segment_duration=MAXIMUM_SEGMENT_DURATION,
-            recent_chunk_mode=False):
+            recent_chunk_mode=False,
+            disable_partials=False):
         """Worker thread that processes audio chunks for transcription"""
 
         # transcription logic inspired by 
@@ -294,9 +301,9 @@ class TranscriptionWorker():
                             time_since_last_transcription = time.time()
 
                         # if we have enough data in the buffer, transcribe a partial
-                        elif current_recording_duration > min_partial_duration:
+                        elif not disable_partials and current_recording_duration > min_partial_duration:
                             logging.debug(f"Transcribing partial segment: {current_recording_duration:.2f} sec")
-                            
+
                             if not recent_chunk_mode:
                                 # Mode 1: Retranscribe all accumulated audio (better quality for short durations)
                                 self.accumulated_partial_text = ""
@@ -304,7 +311,7 @@ class TranscriptionWorker():
                                     if text_chunk:
                                         self.accumulated_partial_text += text_chunk
                                         d = len(speech_buffer) / self.sampling_rate
-                                        caption_printer.print(self.accumulated_partial_text, duration=d, partial=True, 
+                                        caption_printer.print(self.accumulated_partial_text, duration=d, partial=True,
                                                              is_recent_chunk_mode=False, recent_chunk_duration=None)
                             else:
                                 # Mode 2: Transcribe only recent chunk (efficient for long durations)
@@ -318,12 +325,12 @@ class TranscriptionWorker():
                                             self.accumulated_partial_text += text_chunk
                                             d = len(speech_buffer) / self.sampling_rate
                                             recent_chunk_duration = len(recent_chunk) / self.sampling_rate
-                                            caption_printer.print(self.accumulated_partial_text, duration=d, partial=True, 
+                                            caption_printer.print(self.accumulated_partial_text, duration=d, partial=True,
                                                                  is_recent_chunk_mode=True, recent_chunk_duration=recent_chunk_duration)
-                                    
+
                                     # Update tracking position
                                     self.last_partial_transcribed_length = len(speech_buffer)
-                            
+
                             time_since_last_transcription = time.time()
                     else:
                         empty_frames_to_keep = int(0.1 * self.sampling_rate)

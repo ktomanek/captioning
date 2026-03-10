@@ -88,7 +88,7 @@ The `captioning_app.py` allows to feed in an audio file along with the correspon
 
 Example:
 
-```python captioning_app.py --model moonshine_tiny --eval --audio_file=../samples/jfk_space.wav --reference_file=../samples/jfk_space.txt```
+```python src/captioning_lib/captioning_app.py --model moonshine_tiny --eval --audio_file=../samples/jfk_space.wav --reference_file=../samples/jfk_space.txt```
 
 # Running Captioning Server
 
