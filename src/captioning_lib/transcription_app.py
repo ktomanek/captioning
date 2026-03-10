@@ -3,7 +3,7 @@ import argparse
 from captioning_lib import evaluation_utils
 import jiwer
 from transcribers import FasterWhisperTranscriber, NemoTranscriber, MoonshineTranscriber, VoskTranscriber, ONNXWhisperTranscriber
-from transformers.models.whisper.english_normalizer import BasicTextNormalizer
+from captioning_lib.text_normalizer import BasicTextNormalizer
 transcript_normalizer = BasicTextNormalizer()
 
 

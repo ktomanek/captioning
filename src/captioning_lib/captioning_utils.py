@@ -17,7 +17,7 @@ def get_argument_parser():
         "-m",
         "--model",
         type=str,
-        default="moonshine_onnx_tiny",
+        default="moonshine_tiny",
         choices=list(transcribers.FasterWhisperTranscriber.AVAILABLE_MODELS.keys()) + 
         list(transcribers.NemoTranscriber.AVAILABLE_MODELS.keys()) + 
         list(transcribers.MoonshineTranscriber.AVAILABLE_MODELS.keys()) + 

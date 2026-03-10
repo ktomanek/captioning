@@ -8,14 +8,14 @@ from captioning_lib import printers
 def get_wer(reference_text: str, transcript_text: str, normalized: bool = True) -> float:
     """Calculate Word Error Rate (WER) between reference and transcript."""
 
-    from transformers.models.whisper.english_normalizer import BasicTextNormalizer
     import jiwer
-    transcript_normalizer = BasicTextNormalizer()
+    from captioning_lib.text_normalizer import BasicTextNormalizer
 
     if normalized:
+        transcript_normalizer = BasicTextNormalizer()
         reference_text = transcript_normalizer(reference_text)
         transcript_text = transcript_normalizer(transcript_text)
-    
+
     wer = jiwer.wer(reference_text, transcript_text)
     return wer
 

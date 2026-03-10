@@ -1,10 +1,10 @@
 # Stand-alone captioning app that can also be used to evaluate streaming performance (eval mode).
 #
 # For captioning from microphone:
-# python captioning_app.py --model moonshine_onnx_tiny --rich_captions --eos_min_silence=200
+# python captioning_app.py --model moonshine_tiny --rich_captions --eos_min_silence=200
 #
 # For evaluation with audio file and reference transcript:
-# python captioning_app.py --model moonshine_onnx_tiny --eval --audio_file=../samples/jfk.mp3 --reference_file=../samples/jfk.txt
+# python captioning_app.py --model moonshine_tiny --eval --audio_file=../samples/jfk.mp3 --reference_file=../samples/jfk.txt
 
 
 import json

@@ -1,3 +1,4 @@
+# Core dependencies
 sounddevice
 psutil
 rich
@@ -8,6 +9,10 @@ flask_socketio
 python-socketio[client]
 cryptography
 numpy
-transformers
+
+# Default ASR models (moonshine and faster-whisper)
 faster-whisper
+moonshine-voice
+
+# Required for VAD (Silero)
 onnxruntime

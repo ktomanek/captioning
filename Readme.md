@@ -4,7 +4,7 @@ Supported ASR models:
 
 * [FasterWhisper](https://github.com/SYSTRAN/faster-whisper)
 * [Whisper ONNX](https://huggingface.co/docs/transformers/serialization#onnx) - Custom Whisper models exported to ONNX format (requires 3 files: encoder_model.onnx, decoder_model.onnx, decoder_with_past_model.onnx)
-* [Moonshine ONNX](https://github.com/usefulsensors/moonshine)
+* [Moonshine](https://github.com/moonshine-ai/moonshine)
 * [NVidia Nemo FastConformer](https://docs.nvidia.com/nemo-framework/user-guide/latest/nemotoolkit/asr/intro.html)
 
 
@@ -22,7 +22,7 @@ Install library
 
 ```pip install -e .```
 
-Base installation (will work with faster-whisper models)
+Base installation (will work with faster-whisper and moonshine models)
 
 ```pip install -r requirements.txt``
 
@@ -36,19 +36,22 @@ Download the silero VAD model
 ```python src/captioning_lib/helpers/download_silero_vad_model.py```
 
 
-## Optional: other models 
-
-To install Moonshine ONNX models (recommended):
-
-```pip install useful-moonshine-onnx@git+https://git@github.com/usefulsensors/moonshine.git#subdirectory=moonshine-onnx```
+## Optional: other models
 
 To install Nemo models (optional)
 
 ```pip install "nemo_toolkit[asr]"```
 
+To use custom ONNX Whisper models (whisperonnx model type, optional), we rely on the WhisperProcessor from the transformer library for audio preprocessig and tokenization, hence:
+
+```pip install transformers```
+
+Note: transformers pulls in PyTorch as a dependency. This is only needed if you want to use the `whisperonnx` model type with custom ONNX models.
+
 To install the Vosk model (optional)
 
 ```pip install vosk```
+
 
 ## Optional: Run models remotely
 
@@ -85,7 +88,7 @@ The `captioning_app.py` allows to feed in an audio file along with the correspon
 
 Example:
 
-```python captioning_app.py --model moonshine_onnx_tiny --eval --audio_file=../samples/jfk_space.wav --reference_file=../samples/jfk_space.txt```
+```python captioning_app.py --model moonshine_tiny --eval --audio_file=../samples/jfk_space.wav --reference_file=../samples/jfk_space.txt```
 
 # Running Captioning Server
 
@@ -113,7 +116,7 @@ Currently the server does not handle concurrent connections.
     * but instead it compares WER and RTFx on different hardware in streaming mode
     * nemo models transcribe numbers as words, leading to higher WER too
     * overall, especially in the non-streaming scenario most errors are due to normalization of numbers
-* moonshine-onnx-base had strange issues in the non-streaming scenario, leading to lots of dropped parts of the audio file, unclear why
+* moonshine-base had strange issues in the non-streaming scenario, leading to lots of dropped parts of the audio file, unclear why
 
 Overall:
 
@@ -141,8 +144,8 @@ Hardware tested
 |                         | mem | WER         || RTF Mac M2  || RTF MiniPC  || RTF Rasp ||
 | --                      | -- |  -- | --    |  --   | --  |    -- | --  |    -- | --|
 | model                   | -   | stream   | offl  |  stream| offl  |   stream| offl    |     stream|   offl |
-| moonshine-onnx-tiny     | ~550 MB | 0.23 | 0.0 | 65.2 | 50.6 | 20.9 | 11.6 | 15.1 | 23.5 | 
-| moonshine-onnx-base     | ~970 MB | 0.16 | 0.0 | 32.9 | 16.1 | 12.6 | 5.1 | 7.8  | 12.7 | 
+| OLD moonshine-tiny          | ~550 MB | 0.23 | 0.0 | 65.2 | 50.6 | 20.9 | 11.6 | 15.1 | 23.5 |
+| OLD moonshine-base          | ~970 MB | 0.16 | 0.0 | 32.9 | 16.1 | 12.6 | 5.1 | 7.8  | 12.7 | 
 | fasterwhisper-tiny      | ~230 MB | 0.25 | 0.0 | 6.0  | 34.7 | 2.6  | 22.1 | 1.1  | 6.6|
 | fasterwhisper-base      | ~320 MB | 0.11 | 0.0 | 4.0  | 17.2 | 1.8  | 14.1 | 0.8  | 4.3 |
 | fasterwhisper-small     | ~640 MB | 0.10 | 0.0 | 1.3  | 7.3  | 0.7  | 4.8  | 0.1  | 1.3 |
@@ -151,11 +154,12 @@ Hardware tested
 | nemo-fastconformer-rnnt | ~1440 MB | 0.13 | 0.05 | 15.2 | 53.4 | 6.9  | 12.7 | 3.1  | 8.14 | 
 | vosk-tiny               | ~110 MB | 0.31 | 0.18 | 19.2 | 25.8 | | | | |
 
+Note: moonshine results are from previous release...
 
 
 ## Take-aways
 
-* Raspberry Pi 5 can run all tested models (except for fasterwhisper-small and base)  on device, not all are practically acceptable for real-time streaming for faster speakers. Moonshine-onnx-tiny and the onnx version of whisper make the cut and seems ok for real time scenarios.
+* Raspberry Pi 5 can run all tested models (except for fasterwhisper-small and base)  on device, not all are practically acceptable for real-time streaming for faster speakers. Moonshine-tiny and the onnx version of whisper make the cut and seems ok for real time scenarios.
 * In general, Moonshine models significantly faster than tested Nemo models with much lower memory footprint (due to ONNX opt and smaller parameter size), but have higher WER (see HF leaderboard)
 
 

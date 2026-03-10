@@ -307,46 +307,63 @@ class NemoTranscriber(Transcriber):
             yield result.strip()
 
 class MoonshineTranscriber(Transcriber):
-    AVAILABLE_MODELS = {'moonshine_onnx_tiny': 'tiny',
-                        'moonshine_onnx_base': 'base'}
+    AVAILABLE_MODELS = {'moonshine_tiny': 'tiny',
+                        'moonshine_base': 'base'}
 
     def __init__(self, model_name_or_path, sampling_rate, show_word_confidence_scores=False, language=DEFAULT_LANGUAGE, output_streaming=True, model_path=None):
         self.models_dir = model_path
         super().__init__(model_name_or_path, sampling_rate, show_word_confidence_scores, language, output_streaming)
-        
+
     def _load_model(self, model_name):
-        """Load Moonshine ONNX model.
-        
-        model_name: name of the Moonshine model to load (e.g., 'tiny', 'base').
-        models_dir: directory where the Moonshine ONNX model files are located. If not set, will
-            download models from Hugging Face Hub (may ignore cache). In order to work 
-            offline properly, first download the model and then provide the models_dir path.
+        """Load Moonshine model using the new moonshine_voice API.
+
+        model_name: name of the Moonshine model to load (e.g., 'moonshine_tiny', 'moonshine_base').
+        Only non-streaming models (TINY and BASE) are supported.
         """
 
         if self.language != DEFAULT_LANGUAGE:
             raise ValueError(f"Language {self.language} is not supported by MoonshineTranscriber.")
 
-        from moonshine_onnx import MoonshineOnnxModel, load_tokenizer
+        from moonshine_voice import get_model_for_language, Transcriber as MoonshineVoiceTranscriber
+        from moonshine_voice.moonshine_api import ModelArch as MoonshineModelArch
+
         if model_name not in self.AVAILABLE_MODELS.keys():
             raise ValueError(f"Model {model_name} is not supported by MoonshineTranscriber.")
-        
-        full_model_name = self.AVAILABLE_MODELS[model_name]
-        self.tokenizer = load_tokenizer()
-        
-        if self.models_dir:
-            print(f"Loading Moonshine model {model_name} from local path {self.models_dir} ...")
-            self.model = MoonshineOnnxModel(model_name=full_model_name, models_dir=self.models_dir)
-        else:
-            print(f"Loading Moonshine model {model_name} via HF Hub ...")
-            self.model = MoonshineOnnxModel(model_name=full_model_name)
 
-        logging.info(f"Loaded Moonshine ONNX model: {full_model_name}")
+        full_model_name = self.AVAILABLE_MODELS[model_name]
+
+        # Map model names to MoonshineModelArch (only non-streaming models)
+        if full_model_name == 'tiny':
+            model_arch = MoonshineModelArch.TINY
+        elif full_model_name == 'base':
+            model_arch = MoonshineModelArch.BASE
+        else:
+            raise ValueError(f"Model {full_model_name} is not supported. Only 'tiny' and 'base' are available.")
+
+        print(f"Loading Moonshine model {model_name} ({full_model_name}) ...")
+        model_path, model_arch = get_model_for_language("en", model_arch)
+        print(f"Model path: {model_path}")
+        print(f"Model arch: {model_arch}")
+
+        self.model = MoonshineVoiceTranscriber(model_path=model_path, model_arch=model_arch)
+
+        logging.info(f"Loaded Moonshine model: {full_model_name}")
 
     def _transcribe(self, audio_data, segment_end):
-        tokens = self.model.generate(audio_data[np.newaxis, :].astype(np.float32))
-        text = self.tokenizer.decode_batch(tokens)[0]
-        if text and text.strip():
-            yield text.strip()
+        # Convert audio_data to list as expected by the new API
+        audio_list = audio_data.tolist()
+
+        # Use transcribe_without_streaming for non-streaming models
+        transcript = self.model.transcribe_without_streaming(
+            audio_data=audio_list,
+            sample_rate=self.sampling_rate
+        )
+
+        # Extract text from transcript lines
+        if hasattr(transcript, 'lines') and transcript.lines:
+            text = " ".join([line.text for line in transcript.lines])
+            if text and text.strip():
+                yield text.strip()
 
 class ONNXWhisperTranscriber(Transcriber):
     """ONNX Whisper transcriber that uses user-provided ONNX model files."""
