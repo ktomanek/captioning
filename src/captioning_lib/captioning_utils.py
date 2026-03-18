@@ -17,10 +17,11 @@ def get_argument_parser():
         "-m",
         "--model",
         type=str,
-        default="moonshine_tiny",
+        default="moonshine_v1_tiny",
         choices=list(transcribers.FasterWhisperTranscriber.AVAILABLE_MODELS.keys()) + 
         list(transcribers.NemoTranscriber.AVAILABLE_MODELS.keys()) + 
-        list(transcribers.MoonshineTranscriber.AVAILABLE_MODELS.keys()) + 
+        list(transcribers.MoonshineV1Transcriber.AVAILABLE_MODELS.keys()) +
+        list(transcribers.MoonshineV2Transcriber.AVAILABLE_MODELS.keys()) + 
         list(transcribers.RemoteGPUTranscriber.AVAILABLE_MODELS.keys()) + 
         list(transcribers.TranslationTranscriber.AVAILABLE_MODELS.keys()) +
         list(transcribers.VoskTranscriber.AVAILABLE_MODELS.keys()) +
@@ -113,7 +114,13 @@ def get_argument_parser():
         default=True,
         help="Use Raspberry Pi optimized session configuration for ONNX models.",
     )
-    
+    parser.add_argument(
+        "--repetition_penalty",
+        type=float,
+        default=1.2,
+        help="Repetition penalty for Moonshine V1 models (default: 1.2). Higher values reduce repetition. Set to 1.0 to disable.",
+    )
+
     return parser
 ########## configurations ##########
 
@@ -138,15 +145,17 @@ LANGUAGE = 'en'
 ######################################
 
 
-def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_confidence_scores=False, model_path=None, output_streaming=True, use_raspberry_pi_session_config=True):
+def load_asr_model(model_name, language, sampling_rate=SAMPLING_RATE, show_word_confidence_scores=False, model_path=None, output_streaming=True, use_raspberry_pi_session_config=True, repetition_penalty=1.2):
     from captioning_lib import transcribers
     logging.debug("Loading ASR model...")
     if model_name.startswith('fasterwhisper'):
         asr_model = transcribers.FasterWhisperTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming, model_path=model_path)
     elif model_name.startswith('nemo'):
         asr_model = transcribers.NemoTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming)
-    elif model_name.startswith('moonshine'):
-        asr_model = transcribers.MoonshineTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming, model_path=model_path)
+    elif model_name.startswith('moonshine_v1'):
+        asr_model = transcribers.MoonshineV1Transcriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming, model_path=model_path, repetition_penalty=repetition_penalty)
+    elif model_name.startswith('moonshine_v2'):
+        asr_model = transcribers.MoonshineV2Transcriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming, model_path=model_path)
     elif model_name.startswith('remote'):
         asr_model = transcribers.RemoteGPUTranscriber(model_name, sampling_rate, show_word_confidence_scores, language, output_streaming=output_streaming)
     elif model_name.startswith('translation'):

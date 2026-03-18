@@ -12,6 +12,7 @@ numpy
 
 # Default ASR models (moonshine and faster-whisper)
 faster-whisper
+useful-moonshine-onnx @ git+https://github.com/ktomanek/moonshine_v1.git#subdirectory=moonshine-onnx
 moonshine-voice
 
 # Required for VAD (Silero)

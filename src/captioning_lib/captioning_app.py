@@ -1,10 +1,10 @@
 # Stand-alone captioning app that can also be used to evaluate streaming performance (eval mode).
 #
 # For captioning from microphone:
-# python captioning_app.py --model moonshine_tiny --rich_captions --eos_min_silence=200
+# python captioning_app.py --model moonshine_v1_tiny --rich_captions --eos_min_silence=200
 #
 # For evaluation with audio file and reference transcript:
-# python captioning_app.py --model moonshine_tiny --eval --audio_file=../samples/jfk.mp3 --reference_file=../samples/jfk.txt
+# python captioning_app.py --model moonshine_v1_tiny --eval --audio_file=../samples/jfk.mp3 --reference_file=../samples/jfk.txt
 
 
 import json
@@ -172,13 +172,14 @@ def main():
     recent_chunk_mode = args.recent_chunk_mode
     output_streaming = recent_chunk_mode
     
-    asr_model = captioning_utils.load_asr_model(model_name=args.model, 
+    asr_model = captioning_utils.load_asr_model(model_name=args.model,
                                                 language=args.language,
-                                                sampling_rate=captioning_utils.SAMPLING_RATE, 
+                                                sampling_rate=captioning_utils.SAMPLING_RATE,
                                                 show_word_confidence_scores=args.show_word_confidence_scores,
                                                 model_path=args.model_path,
                                                 output_streaming=output_streaming,
-                                                use_raspberry_pi_session_config=args.use_raspberry_pi_session_config)
+                                                use_raspberry_pi_session_config=args.use_raspberry_pi_session_config,
+                                                repetition_penalty=args.repetition_penalty)
     
     # Print transcription mode information
     mode = "Recent-chunk mode" if recent_chunk_mode else "Retranscribe mode"

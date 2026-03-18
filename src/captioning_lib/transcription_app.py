@@ -2,7 +2,7 @@
 import argparse
 from captioning_lib import evaluation_utils
 import jiwer
-from transcribers import FasterWhisperTranscriber, NemoTranscriber, MoonshineTranscriber, VoskTranscriber, ONNXWhisperTranscriber
+from transcribers import FasterWhisperTranscriber, NemoTranscriber, MoonshineV1Transcriber, MoonshineV2Transcriber, VoskTranscriber, ONNXWhisperTranscriber
 from captioning_lib.text_normalizer import BasicTextNormalizer
 transcript_normalizer = BasicTextNormalizer()
 
@@ -23,8 +23,10 @@ def get_transcriber(model_name, sampling_rate, model_path=None, use_raspberry_pi
         return FasterWhisperTranscriber(model_name, sampling_rate, model_path=model_path)
     elif model_name in NemoTranscriber.AVAILABLE_MODELS:
         return NemoTranscriber(model_name, sampling_rate)
-    elif model_name in MoonshineTranscriber.AVAILABLE_MODELS:
-        return MoonshineTranscriber(model_name, sampling_rate)
+    elif model_name in MoonshineV1Transcriber.AVAILABLE_MODELS:
+        return MoonshineV1Transcriber(model_name, sampling_rate)
+    elif model_name in MoonshineV2Transcriber.AVAILABLE_MODELS:
+        return MoonshineV2Transcriber(model_name, sampling_rate)
     elif model_name in VoskTranscriber.AVAILABLE_MODELS:
         return VoskTranscriber(model_name, sampling_rate)
     elif model_name in ONNXWhisperTranscriber.AVAILABLE_MODELS:
@@ -33,7 +35,8 @@ def get_transcriber(model_name, sampling_rate, model_path=None, use_raspberry_pi
     else:
         available_models = list(FasterWhisperTranscriber.AVAILABLE_MODELS.keys()) + \
                           list(NemoTranscriber.AVAILABLE_MODELS.keys()) + \
-                          list(MoonshineTranscriber.AVAILABLE_MODELS.keys()) + \
+                          list(MoonshineV1Transcriber.AVAILABLE_MODELS.keys()) + \
+                          list(MoonshineV2Transcriber.AVAILABLE_MODELS.keys()) + \
                           list(VoskTranscriber.AVAILABLE_MODELS.keys()) + \
                           list(ONNXWhisperTranscriber.AVAILABLE_MODELS.keys())
         raise ValueError(f"Unknown model: {model_name}. Available models: {', '.join(available_models)}")
